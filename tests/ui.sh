@@ -32,6 +32,8 @@ sf_chain_change() {
 }
 printf '{"node":{"name":"测试节点","address":"203.0.113.10"},"nextHop":null}\n' > "$TEST_WORK/state.json"
 
+# Calls the sourced real menu here; a later setup-only case replaces it.
+# shellcheck disable=SC2218
 sf_menu > "$TEST_WORK/empty.txt" 2>&1 <<< ''
 pass 'main menu empty Enter exits without mutations'
 (

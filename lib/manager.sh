@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Optional root is also passed by callers in other modules/test harnesses.
+# shellcheck disable=SC2120
 sf_source_info() {
     local root=${1:-$SFXH_CODE}
     if [[ -f $root/source.json ]] && jq -e '

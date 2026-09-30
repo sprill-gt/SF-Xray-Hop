@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# The optional path is used by platform fixtures; production uses os-release.
+# shellcheck disable=SC2120
 sf_os_read() {
     local file=${1:-/etc/os-release} key value
     SF_OS_ID='' SF_OS_VERSION='' SF_OS_SUPPORT=target
