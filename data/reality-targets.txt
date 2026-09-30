@@ -1,0 +1,6 @@
+# Independent candidate list. Every candidate must pass live checks on the VPS.
+# The first entry is the explicit installation default; auto fallback is opt-in.
+archive.archlinux.org
+www.amazon.com
+www.cloudflare.com
+www.yahoo.com

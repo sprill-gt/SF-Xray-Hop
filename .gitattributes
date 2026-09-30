@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.sh text eol=lf
+sf-xray-hop text eol=lf
+sfxh text eol=lf
+*.png binary
