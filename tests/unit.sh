@@ -12,14 +12,12 @@ work=$SFXH_TEST_ROOT/fixtures
 count=0
 pass() { count=$((count+1)); printf 'PASS %02d %s\n' "$count" "$1"; }
 reject() { if "$@" > "$work/rejected.stdout" 2> "$work/rejected.stderr"; then printf 'FAIL expected rejection: %s\n' "$1" >&2; exit 1; fi; }
-for os in 'debian 12' 'debian 13' 'debian 13.1' 'ubuntu 24.04' 'ubuntu 24.04.3'; do
+for os in 'debian 12' 'debian 13' 'debian 13.1' 'debian 13.7' 'ubuntu 24.04' 'ubuntu 24.04.3'; do
     read -r id version <<< "$os"
     printf 'ID="%s"\nVERSION_ID="%s"\n' "$id" "$version" > "$work/os-release"
     sf_os_read "$work/os-release"; pass "platform $os"
 done
-printf 'ID=ubuntu\nVERSION_ID=22.04\n' > "$work/os-release"
-sf_os_read "$work/os-release"; [[ $SF_OS_SUPPORT == experimental ]]; pass 'Ubuntu 22.04 explicitly experimental'
-for os in 'ubuntu 24.10' 'ubuntu 20.04' 'debian 11' 'linuxmint 24.04'; do
+for os in 'ubuntu 22.04' 'ubuntu 22.04.5' 'ubuntu 24.10' 'ubuntu 20.04' 'debian 11' 'linuxmint 24.04'; do
     read -r id version <<< "$os"
     printf 'ID=%s\nVERSION_ID=%s\nID_LIKE=ubuntu\n' "$id" "$version" > "$work/os-release"
     reject sf_os_read "$work/os-release"; pass "reject platform $os"
