@@ -4,28 +4,27 @@
 
 | 系统 | 架构 | 状态 |
 |---|---|---|
-| Debian 12 | amd64 | 实际部署待验证 |
-| Debian 13 | amd64 | 实际部署待验证 |
-| Ubuntu 24.04 LTS | amd64 | 24.04.3 实机安装、systemd、双跳通过；当前VMISS中转／入口 |
+| Debian 13 | amd64 | 两台已重装为 13.3／13.7；当前候选实机验收进行中 |
+| Ubuntu 24.04.3 LTS | amd64 | 0.2.4 安装、systemd、双跳及生命周期历史证据通过；0.2.5 未在该系统重新部署 |
 
-v0.2.0已在这两台Ubuntu完成GitHub全新安装、systemd、中文向导和Windows独立设备双跳检查；更新、卸载及故障恢复的具体证据见[R2实机记录](vps-r2-2026-09-30.md)。Debian仍是目标支持，不能从Ubuntu结果外推。
+仅声明以上两个系统，不再支持 Debian 12 或 Ubuntu 22.04。Ubuntu 的历史证据见[0.2.4生命周期](vps-lifecycle-0.2.4-2026-10-01.md)，当前候选及剩余发布条件见[0.2.5候选验收](release-candidate-0.2.5.md)，不把旧包结果直接当作新包已部署。
 
-Ubuntu 24 指 24.04 LTS 系列点版本。发行版从 /etc/os-release 的 ID、VERSION_ID 判断，不通过 ID_LIKE 放行衍生版。需要可操作的 systemd；WSL 和容器检查不算 VPS 验收。
+发行版从 /etc/os-release 的 ID、VERSION_ID 判断，不通过 ID_LIKE 放行衍生版。Debian 13 覆盖其点版本；Ubuntu 24.04.3 的 VERSION_ID 通常为 24.04，检测接受该版本标识，其他 24.04 点版本没有实机验收与支持承诺。需要可操作的 systemd；WSL 和容器检查不算 VPS 验收。
 
-2026-10-01 决定停止 Ubuntu 22.04 的实验支持；当前源码的安装和 doctor 平台检查拒绝该系统及其点版本。已发布的 v0.2.4 标签、发行包和一键命令保持原样，因此这条限制尚不适用于该冻结发行。历史 Ubuntu 22.04 测试结果继续保留，不作为今后支持承诺。没有扩大到 Ubuntu 20.04 或其他衍生系统。
+2026-10-01 收窄支持范围；0.2.5 的安装和 doctor 平台检查拒绝 Debian 12、Ubuntu 22.04 及其点版本。已发布的 v0.2.4 标签和发行包保持原样。历史 Ubuntu 22.04 测试结果继续保留，不作为今后支持承诺。
 
 v0.2.3 干净安装失败的根因是引导解包后的源文件权限与 DynamicUser 不兼容，已在 v0.2.4 修复，并在 Ubuntu 22.04 和 24.04 均通过；不能据此认定 Ubuntu 22.04 太旧。诺亚重启、换核后首批 TLS 错误的根因仍待定位，不能承诺换系统即可消除。详细证据见[当前生命周期记录](vps-lifecycle-0.2.4-2026-10-01.md)。
 
 ## 两台测试机迁移至 Debian 13
 
-计划统一使用 Debian 13 amd64，方向保持 **设备 → VMISS 中转／入口 → 诺亚落地／出口 → Internet**。Debian 13 已有平台识别支持，但两台实机迁移、systemd 和真实双跳仍待验证；系统更新不等于吞吐提升或重连问题已修复。
+用户已完成系统重装；SSH 实测 VMISS 为 Debian 13.3、诺亚为 Debian 13.7，均为 amd64、systemd。方向保持 **设备 → VMISS 中转／入口 → 诺亚落地／出口 → Internet**。本轮从两台未安装 Xray 的环境重新验收；系统更新不等于吞吐提升或重连问题已修复。以下为以后重装时的操作说明。
 
 1. 重装前保存两台机器当前安装的私密备份，并确认供应商控制台可用。此前生命周期测试的原始备份早于最终重装，不能代替当前凭据备份。
 2. 在供应商控制台选择 Debian 13 amd64 的官方最小镜像，干净重装；不要将 Ubuntu 的 APT 源替换为 Debian 来跨发行版升级。
 3. 先准备诺亚出口，再准备 VMISS 入口，按双机向导导入诺亚的中转专用链接。全新安装会生成新身份；需要保留已发布入口链接时，须先核对当前状态与恢复方案。
 4. 重建 SSH 连接后，核对新主机指纹及真实 OS。使用同一 core、客户端和协议条件复测安装、权限、出口停启、整机重启、事务恢复和双跳，再更新验收矩阵。
 
-这份迁移计划尚未执行。Debian 13 官方支持 amd64，支持周期和镜像信息以[官方发行页](https://www.debian.org/releases/trixie/)为准。
+Debian 13 官方支持 amd64，支持周期和镜像信息以[官方发行页](https://www.debian.org/releases/trixie/)为准。
 
 ## 安装方法
 
@@ -57,7 +56,7 @@ sudo bash install.sh --address 203.0.113.10 --port 443 --rtt 1 --target auto --v
 
 按需安装官方源中的 bash、jq、curl、ca-certificates、unzip、openssl、coreutils、util-linux、iproute2、procps、iputils-ping。不整机升级，不删 APT 锁。锁超时、源不可用、缺包分别报告。沿用系统 DNS 和现有防火墙，检查云厂商入站 TCP 监听端口；不改 SSH，不关闭 AppArmor。
 
-正式 service 使用专用用户。管理命令使用 sudo。配置权限、低端口能力和 systemd hardening 必须在三个系统分别验证。业务代码以共同可用的 Bash/jq 能力为下限。
+正式 service 使用专用用户。管理命令使用 sudo。配置权限、低端口能力和 systemd hardening 按两个声明系统分别验证。业务代码以共同可用的 Bash/jq 能力为下限。
 
 使用现有 APT 配置，不替换软件源；任一源更新失败都会停止依赖安装。不依赖 net-tools、固定网卡名或 resolv.conf 重写。命令进程使用 UTF-8 locale，APT／ping 等解析单独固定为 C，不修改系统全局语言。
 

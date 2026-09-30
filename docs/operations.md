@@ -20,7 +20,7 @@ pre 仅选择非草稿的实际预发布，stable 仅选择正式发布；两者
 
 ## 管理脚本升级
 
-菜单8或 `sfxh self check/update/rollback`；脚本与核心分别更新。默认选择项目正式 Release；没有正式版就停止。维护者测试可明确 `--version 0.2.4 --allow-pre`；只有相应 Release 及完整资产实际发布后才可下载。脚本更新不替换正在运行的核心；之后运行doctor检查当前核心安全行为，失败时需选择通过门槛的核心。回滚到旧管理脚本也会回退管理侧校验逻辑，应谨慎使用，不能当作安全补丁仍然生效。
+菜单8或 `sfxh self check/update/rollback`；脚本与核心分别更新。默认选择项目正式 Release；没有正式版就停止。维护者测试可明确 `--version 0.2.5 --allow-pre`；只有相应 Release 及完整资产实际发布后才可下载。脚本更新不替换正在运行的核心；之后运行doctor检查当前核心安全行为，失败时需选择通过门槛的核心。回滚到旧管理脚本也会回退管理侧校验逻辑，应谨慎使用，不能当作安全补丁仍然生效。
 
 发行包契约：Release 包含 `manifest.json` 和 `SF-Xray-Hop-版本.tar.gz`。清单 schemaVersion=1，project=SF-Xray-Hop，包含 version、40位 commit、archive.name/sha256/size；标签解析到的提交必须匹配。API资产摘要（若提供）和完整包摘要均检查。HTTPS同源摘要不是独立签名，项目没有把包内公钥作为信任根。
 

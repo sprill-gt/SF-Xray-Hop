@@ -9,9 +9,9 @@ sf_os_read() {
         value=${value%$'\r'}; value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
         case "$key" in ID) SF_OS_ID=$value ;; VERSION_ID) SF_OS_VERSION=$value ;; esac
     done < "$file"
-    if [[ $SF_OS_ID == debian && $SF_OS_VERSION =~ ^(12|13)(\.[0-9]+)*$ ]] ||
+    if [[ $SF_OS_ID == debian && $SF_OS_VERSION =~ ^13(\.[0-9]+)*$ ]] ||
        [[ $SF_OS_ID == ubuntu && $SF_OS_VERSION =~ ^24\.04(\.[0-9]+)*$ ]]; then return 0; fi
-    sf_usage_error "不支持的系统：$SF_OS_ID $SF_OS_VERSION；支持 Debian 12/13 和 Ubuntu 24.04。"
+    sf_usage_error "不支持的系统：$SF_OS_ID $SF_OS_VERSION；支持 Debian 13 和 Ubuntu 24.04.3（VERSION_ID=24.04）。"
 }
 sf_platform_check() {
     sf_root || return
