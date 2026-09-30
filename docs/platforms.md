@@ -4,16 +4,16 @@
 
 | 系统 | 架构 | 状态 |
 |---|---|---|
-| Debian 13 | amd64 | 两台已重装为 13.3／13.7；当前候选实机验收进行中 |
+| Debian 13 | amd64 | 0.2.5 在 13.3入口／13.7出口通过干净安装、systemd、双跳、卸载重装、更新回滚及整机重启恢复 |
 | Ubuntu 24.04.3 LTS | amd64 | 0.2.4 安装、systemd、双跳及生命周期历史证据通过；0.2.5 未在该系统重新部署 |
 
-仅声明以上两个系统，不再支持 Debian 12 或 Ubuntu 22.04。Ubuntu 的历史证据见[0.2.4生命周期](vps-lifecycle-0.2.4-2026-10-01.md)，当前候选及剩余发布条件见[0.2.5候选验收](release-candidate-0.2.5.md)，不把旧包结果直接当作新包已部署。
+仅声明以上两个系统，不再支持 Debian 12 或 Ubuntu 22.04。Debian 的当前证据见[0.2.5生命周期](vps-lifecycle-0.2.5-2026-10-01.md)，Ubuntu 的历史证据见[0.2.4生命周期](vps-lifecycle-0.2.4-2026-10-01.md)，当前日常试用和转正规则见[0.2.6 RC](release-candidate-0.2.6.md)，不把旧包结果直接当作新包已部署。
 
 发行版从 /etc/os-release 的 ID、VERSION_ID 判断，不通过 ID_LIKE 放行衍生版。Debian 13 覆盖其点版本；Ubuntu 24.04.3 的 VERSION_ID 通常为 24.04，检测接受该版本标识，其他 24.04 点版本没有实机验收与支持承诺。需要可操作的 systemd；WSL 和容器检查不算 VPS 验收。
 
 2026-10-01 收窄支持范围；0.2.5 的安装和 doctor 平台检查拒绝 Debian 12、Ubuntu 22.04 及其点版本。已发布的 v0.2.4 标签和发行包保持原样。历史 Ubuntu 22.04 测试结果继续保留，不作为今后支持承诺。
 
-v0.2.3 干净安装失败的根因是引导解包后的源文件权限与 DynamicUser 不兼容，已在 v0.2.4 修复，并在 Ubuntu 22.04 和 24.04 均通过；不能据此认定 Ubuntu 22.04 太旧。诺亚重启、换核后首批 TLS 错误的根因仍待定位，不能承诺换系统即可消除。详细证据见[当前生命周期记录](vps-lifecycle-0.2.4-2026-10-01.md)。
+v0.2.3 干净安装失败的根因是引导解包后的源文件权限与 DynamicUser 不兼容，已在 v0.2.4 修复，并在 Ubuntu 22.04 和 24.04 均通过；不能据此认定 Ubuntu 22.04 太旧。诺亚重启、换核后的首次 TLS 错误在 Debian 13 仍可复现，随后请求恢复；下游 1-RTT 对比也没有消除重启期间的首次超时，不能承诺换系统或修改 RTT 即可修复。详见[当前生命周期记录](vps-lifecycle-0.2.5-2026-10-01.md)。
 
 ## 两台测试机迁移至 Debian 13
 
@@ -62,6 +62,6 @@ sudo bash install.sh --address 203.0.113.10 --port 443 --rtt 1 --target auto --v
 
 systemd 使用专用 `sfxray` 用户、`CAP_NET_BIND_SERVICE`、root 启动准备程序、只读系统目录与专用可写路径。正式服务依赖 network-online；启动准备程序校验归档和代次并恢复中断事务。安装时执行 unit 校验和正式链路复测；开机恢复测试需实际重启该 VPS，不能以 `enable` 成功替代。
 
-临时 Xray 候选、客户端、TLS 检测和测速客户端通过 systemd-run 的 DynamicUser 运行，有效能力为空。LoadCredential 向当前临时用户提供私密配置，管理目录保持0700；临时单元只监听回环、设置运行时限并按控制组结束。历史上已在Ubuntu22.04的systemd249和Ubuntu24.04的systemd255隔离验证；前者现已移出当前源码支持范围，Debian 实机仍待验收。
+临时 Xray 候选、客户端、TLS 检测和测速客户端通过 systemd-run 的 DynamicUser 运行，有效能力为空。LoadCredential 向当前临时用户提供私密配置，管理目录保持0700；临时单元只监听回环、设置运行时限并按控制组结束。0.2.5 已在两台 Debian 13 的 systemd 257 实机完成隔离权限回归。历史 Ubuntu 24.04 的 systemd 255 证据保留；Ubuntu 22.04 的 systemd 249 记录不扩展当前支持范围。
 
 官方来源：[Ubuntu 24.04](https://releases.ubuntu.com/24.04/)（核对日期：2026-09-28）、[Debian 13](https://www.debian.org/releases/trixie/)及[发行说明](https://www.debian.org/releases/trixie/release-notes/)（核对日期：2026-10-01）。

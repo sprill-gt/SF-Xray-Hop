@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 sf_self_info() {
     local state
-    sf_msg "管理脚本：$SFXH_VERSION"
+    sf_msg "脚本版本：$SFXH_VERSION"
     sf_msg "源码提交：$(sf_source_info | jq -r '.commit // "未记录（本地包）"')"
     if state=$(sf_state); then sf_msg "核心配置版本：$(jq -r '.core.version+" / "+.core.channel' "$state")；脚本更新不更换核心。"; fi
     sf_msg "实际运行核心：$(sf_running_core_version || printf '—')"

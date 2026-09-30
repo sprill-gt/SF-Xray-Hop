@@ -42,8 +42,8 @@ Encryption 的 native/xorpub/random 与 uTLS 指纹完全不同；界面和字�
 
 ## 指定GUI版本的源码核对
 
-2026-10-01按用户提供的版本核对：Windows v2rayN 7.25.2、Android v2rayNG 2.3.8，客户端核心均为26.9.9。两者固定版本的VLESS解析器都读取`encryption`；公共解析器读取XHTTP的`type/path/mode`以及REALITY的`sni/fp/pbk/sid`和`flow`。没有据此改变分享字段或删除Encryption。来源：[v2rayN VLESSFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs)、[BaseFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs)、[v2rayNG VlessFmt](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/VlessFmt.kt)、[FmtBase](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/FmtBase.kt)。这是字段级源码核对，实际GUI长链接导入、自定义JSON、客户端DNS和故障重连仍待设备验收。
+2026-10-01按用户提供的版本核对：Windows v2rayN 7.25.2、Android v2rayNG 2.3.8，客户端核心均为26.9.9。两者固定版本的VLESS解析器都读取`encryption`；公共解析器读取XHTTP的`type/path/mode`以及REALITY的`sni/fp/pbk/sid`和`flow`。没有据此改变分享字段或删除Encryption。来源：[v2rayN VLESSFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs)、[BaseFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs)、[v2rayNG VlessFmt](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/VlessFmt.kt)、[FmtBase](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/FmtBase.kt)。以上为字段级源码核对，实际设备证据见下一段。
 
-已验证 URI 完整语义回环，但第三方 GUI 对长 Encryption 字段、Vision 与 XHTTP 的支持仍需逐版本验证；不据此宣称 v2rayN 或所有客户端已兼容。
+2026-10-01 已在真实 v2rayN 7.25.2 导入 Direct／Relay 两条长链接，并核对 13 项连接字段及完整 1610 字符 Encryption 与来源一致；这是实际导入证据。自定义 JSON、GUI 请求及 Android 仍与源码／原生 core 验证分开记录，见[0.2.5 实机记录](vps-lifecycle-0.2.5-2026-10-01.md)。其他版本和客户端不由此推定兼容。
 
 R2 核对日期：2026-09-30。参考 [VLESS outbound](https://xtls.github.io/config/outbounds/vless.html) 与 [inbound](https://xtls.github.io/config/inbounds/vless.html)。未知 Encryption 结构停止 RTT 修改；不自行扩展算法或证明其安全性。

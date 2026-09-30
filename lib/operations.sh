@@ -158,7 +158,8 @@ sf_core_rollback() (
 )
 sf_status() {
     local state g role health status='未运行' running='—'
-    sf_msg "SF-Xray-Hop $SFXH_VERSION"
+    sf_msg 'SF-Xray-Hop'
+    sf_msg "脚本版本：$SFXH_VERSION"
     if [[ -f $SFXH_CODE/source.json ]]; then sf_msg "管理器源码：$(jq -r '.commit//"离线包"' "$SFXH_CODE/source.json")"; fi
     if ! sf_installed; then sf_msg '安装状态：尚未安装'; return 0; fi
     state=$(sf_state) || return; g=$(basename "$(dirname "$state")")

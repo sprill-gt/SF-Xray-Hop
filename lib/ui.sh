@@ -239,8 +239,10 @@ sf_menu() {
 }
 sf_help() {
     cat <<'HELP'
-SF-Xray-Hop / sfxh — 一键直连、按需链式（实验产物）
+SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   无参数                        中文数字菜单
+  version                       查看当前脚本版本，无需 sudo／联网
+  --version                     仅输出脚本版本号，供自动化读取
   install [选项]                默认443 / 0-RTT / archive.archlinux.org / pre
                                 --address 地址 --port 端口 --rtt 0|1 --target 域名|auto
                                 --name 名称 --channel pre|stable --version 核心版本
@@ -272,7 +274,11 @@ HELP
 sf_main() {
     local command=${1:-menu} sub
     (($#==0)) || shift
-    case "$command" in help|-h|--help) sf_help; return 0 ;; --version) printf '%s\n' "$SFXH_VERSION"; return 0 ;; esac
+    case "$command" in
+        help|-h|--help) sf_help; return 0 ;;
+        version) [[ $# == 0 ]] || return 2; printf 'SF-Xray-Hop\n脚本版本：%s\n' "$SFXH_VERSION"; return 0 ;;
+        --version) printf '%s\n' "$SFXH_VERSION"; return 0 ;;
+    esac
     if [[ $command == internal ]]; then
         [[ $# == 1 ]] || return 2
         case "$1" in prepare-runtime) sf_prepare_runtime ;; runtime) sf_runtime ;; setup) sf_root && sf_setup ;; upgrade-manager) sf_upgrade_manager ;; *) return 2 ;; esac
