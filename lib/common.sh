@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SFXH_VERSION=0.2.3
+SFXH_VERSION=0.2.4
 SFXH_BASELINE=26.9.9
 sf_paths() {
     local prefix=''

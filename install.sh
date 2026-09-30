@@ -2,7 +2,7 @@
 # Standalone HTTPS bootstrap and offline source entrypoint. No Git dependency.
 set -uo pipefail
 umask 077
-SFXH_SOURCE_VERSION=0.2.3
+SFXH_SOURCE_VERSION=0.2.4
 SFXH_SOURCE_COMMIT=''
 SFXH_SOURCE_SHA256=''
 SFXH_BOOT_ACTION=install
