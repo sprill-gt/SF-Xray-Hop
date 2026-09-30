@@ -8,6 +8,52 @@ sf_core_test() {
     local binary=$1 config=$2 output=$3
     timeout 20 "$binary" run -test -config "$config" 2>&1 | sf_redact > "$output" || { sf_fail 'Xray 配置验证失败（诊断输出已脱敏）。'; return 1; }
 }
+sf_core_security() (
+    local binary=$1 work hash policy cache expected pid='' unit='' result
+    binary=$(realpath -- "$binary") || return
+    [[ -x $binary && $binary != *:* && $binary != *[[:space:]]* && $SFXH_CODE != *:* && $SFXH_CODE != *[[:space:]]* ]] || return 2
+    hash=$(sf_hash "$binary") || return
+    policy=$(cat "$SFXH_CODE/lib/core.sh" "$SFXH_CODE/lib/core-safety-worker.sh" "$SFXH_CODE/data/core-safety.json" "$SFXH_CODE/templates/model.jq" | sha256sum | cut -d' ' -f1) || return
+    expected=$(jq '.targets|length*2' "$SFXH_CODE/data/core-safety.json") || return
+    cache=$SFXH_VAR/cache/core-safety/$hash.json
+    [[ ! -L $SFXH_VAR/cache/core-safety && ! -L $cache ]] || return 1
+    if [[ -f $cache ]] && jq -e --arg hash "$hash" --arg policy "$policy" --argjson n "$expected" '
+      .binarySha256==$hash and .policySha256==$policy and .status=="pass" and .tcpChecks==$n and
+      .identities==2 and .receiverControls==2 and .authenticatedControls==2' "$cache" >/dev/null 2>&1; then return 0; fi
+    work=$(sf_temp) || return
+    trap 'sf_stop_probe "$pid" "$unit"; sf_remove_tree "$work"' EXIT
+    trap 'exit 130' INT TERM HUP
+    # PrivateNetwork prevents a failing/old candidate from touching host-private
+    # destinations. The hosts file is bind-mounted ONLY in this temporary unit.
+    jq -r '.targets[]|select(.host|endswith(".test"))|.ip+" "+.host' "$SFXH_CODE/data/core-safety.json" > "$work/hosts" || return
+    chmod 644 "$work/hosts" || return
+    unit="sfxh-probe-$(sf_random).service"
+    mkdir -p "$SFXH_RUN/probes" && chmod 700 "$SFXH_RUN/probes" || return
+    printf '%s\n' "$binary" > "$SFXH_RUN/probes/$unit" || return
+    sf_msg '正在隔离验证核心的私网目标防护（无需访问公网或真实内网）……'
+    (sf_probe_close_locks
+     systemd-run --quiet --wait --pipe --collect --service-type=exec --unit "$unit" \
+       -p 'Description=SF-Xray-Hop owned temporary probe' -p DynamicUser=yes -p NoNewPrivileges=yes \
+       -p CapabilityBoundingSet= -p AmbientCapabilities= -p ProtectSystem=strict -p ProtectHome=yes \
+       -p PrivateTmp=yes -p PrivateNetwork=yes -p UMask=0077 -p RuntimeMaxSec=120s -p TimeoutStopSec=3 -p KillMode=control-group \
+       -p "BindReadOnlyPaths=$binary:/tmp/sfxh-safety-core" \
+       -p "BindReadOnlyPaths=$SFXH_CODE/lib/core-safety-worker.sh:/tmp/sfxh-safety-worker.sh" \
+       -p "BindReadOnlyPaths=$SFXH_CODE/data/core-safety.json:/tmp/sfxh-safety-targets.json" \
+       -p "BindReadOnlyPaths=$work/hosts:/etc/hosts" \
+       -- /usr/bin/bash /tmp/sfxh-safety-worker.sh /tmp/sfxh-safety-core /tmp/sfxh-safety-targets.json \
+       > "$work/result.json" 2> "$work/unit.log") &
+    pid=$!
+    result=0; wait "$pid" || result=$?
+    if ((result)) || ! jq -e --argjson n "$expected" '.status=="pass" and .tcpChecks==$n and
+        .identities==2 and .receiverControls==2 and .authenticatedControls==2' "$work/result.json" >/dev/null 2>&1; then
+        sf_fail '未确认核心保持私网安全底线（或隔离探测不可用），拒绝使用该候选；不会因配置能启动或 --offline 而跳过。'
+        return 1
+    fi
+    mkdir -p "${cache%/*}" && chmod 700 "${cache%/*}" || return
+    jq --arg hash "$hash" --arg policy "$policy" --arg at "$(sf_now)" \
+      '.+{binarySha256:$hash,policySha256:$policy,checkedAt:$at}' "$work/result.json" > "$work/record.json" || return
+    sf_atomic_json "$cache" "$work/record.json"
+)
 sf_core_capabilities() {
     local binary=$1 dir=$2 mode=${3:-initialize}
     if [[ $mode != initialize ]]; then
@@ -109,6 +155,7 @@ sf_core_download() {
     unzip -p "$work/core.zip" xray > "$work/unpacked/xray" && chmod 755 "$work/unpacked/xray" || return
     sf_core_capabilities "$work/unpacked/xray" "$work" "$mode" || return
     grep -Eq "^Xray $version([[:space:]]|$)" "$work/version.txt" || { sf_fail '下载核心版本与 Release 不一致。'; return 1; }
+    sf_core_security "$work/unpacked/xray" || return
     id="v$version-$(sf_hash "$work/unpacked/xray" | cut -c1-16)"
     sf_core_publish "$id" "$work/unpacked/xray" "$metadata" "$actual" || return
     printf '%s\n' "$id"

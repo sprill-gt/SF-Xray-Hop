@@ -35,6 +35,7 @@ systemctl() {
     if [[ ${1:-} == restart && -f $TEST_WORK/fail-restart ]]; then rm -f "$TEST_WORK/fail-restart"; return 1; fi
 }
 sf_probe_candidate() { [[ ! -f $TEST_WORK/fail-candidate ]]; }
+sf_core_security() { printf 'checked\n' >> "$TEST_WORK/safety-calls"; [[ ! -f $TEST_WORK/fail-safety ]]; }
 sf_service_active() { [[ ! -f $TEST_WORK/service-stopped ]]; }
 sf_service_ready() { sf_service_active; }
 sf_health_current() {
@@ -58,6 +59,14 @@ require jq -e '.verified==true' "$SFXH_VAR/cores/$id/metadata.json"
 pass 'commit coherent generation and mark core verified'
 
 jq '.node.name="候选节点"|.node.port=444' "$work/state.json" > "$work/candidate.json"
+calls=$(wc -l < "$work/service-calls")
+touch "$work/fail-safety"
+reject sf_tx_apply "$work/candidate.json" test-safety-fail
+rm -f "$work/fail-safety"
+require test "$(sf_generation)" = "$old"
+require test ! -f "$SFXH_ETC/transaction.json"
+require test "$(wc -l < "$work/service-calls")" = "$calls"
+pass 'unsafe candidate is rejected before activation or service restart'
 touch "$work/fail-candidate"
 reject sf_tx_apply "$work/candidate.json" test-candidate-fail
 rm -f "$work/fail-candidate"
@@ -150,6 +159,15 @@ jq -n --arg id "$history_id" --arg hash "$(sf_hash "$work/history-core")" \
     '{id:$id,version:"26.9.9",sha256:$hash,verified:true}' > "$SFXH_VAR/cores/$history_id/metadata.json"
 jq --arg id "$history_id" '.core.id=$id|.core.channel="pinned"|.core.pinnedVersion="26.9.9"' "$(sf_state)" > "$work/offline.json"
 last_good=$(cat "$SFXH_ETC/last-good")
+before_offline=$(sf_generation)
+calls=$(wc -l < "$work/service-calls")
+touch "$work/fail-safety"
+reject sf_tx_apply "$work/offline.json" offline-unsafe-core offline
+rm -f "$work/fail-safety"
+require test "$(sf_generation)" = "$before_offline"
+require test "$(wc -l < "$work/service-calls")" = "$calls"
+require test ! -f "$SFXH_ETC/transaction.json"
+pass 'offline rollback still rejects a historically verified core that fails safety policy'
 touch "$work/fail-candidate" "$work/fail-health"
 require sf_tx_apply "$work/offline.json" offline-recovery offline
 require test -f "$work/fail-candidate"

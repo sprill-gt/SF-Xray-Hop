@@ -1,0 +1,38 @@
+name: Source and isolated regression
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends jq unzip shellcheck curl
+      - name: Pinned official protocol-test core
+        run: |
+          mkdir -p .cache/ci-core
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 https://github.com/XTLS/Xray-core/releases/download/v26.9.9/Xray-linux-64.zip -o .cache/ci-core/core.zip
+          printf '%s  %s\n' '1eb9175d0f0a8f8149c9230a7fc5ae66ce332ed20a53155ce61fe62e3f58b7df' '.cache/ci-core/core.zip' | sha256sum -c -
+          unzip -p .cache/ci-core/core.zip xray > .cache/ci-core/xray
+          chmod 755 .cache/ci-core/xray
+      - name: Source, documentation and bootstrap command
+        run: |
+          python3 tests/check.py
+          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
+          python3 tests/bootstrap-command.py
+      - name: Isolated logic and filesystem regression (services and network mocked)
+        run: |
+          for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version; do
+            sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash "tests/$test.sh"
+          done
+          sudo python3 tests/bootstrap.py
+      - name: Distribution integrity
+        run: |
+          python3 tools/package.py
+          python3 tests/package.py

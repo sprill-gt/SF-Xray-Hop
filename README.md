@@ -1,6 +1,6 @@
 # SF-Xray-Hop
 
-> **暂时性实验产物**：v0.2.2 是 R2 实机测试修正版，尚未完成正式发布、三系统双跳矩阵及长期稳定性验收。
+> **暂时性实验产物**：v0.2.3 修复核心安全门槛与出口检测，仍未完成当前发行包的完整部署、GUI 客户端及长期稳定性验收。[审查处理与边界](docs/audit-0.2.2.md)。
 
 仓库于2026-10-01以 `sprill-gt` 重新建立。请使用下方当前一键命令；旧仓库的提交与发行摘要仅作历史参考。[重建与历史记录说明](docs/repository-2026-10-01.md)。
 
@@ -13,10 +13,10 @@
 实验版一键安装（root，或已配置 sudo 的用户）：
 
 ```bash
-(set -o pipefail; curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v0.2.2/install.sh | bash -s -- --script-version 0.2.2 --allow-pre-script)
+(set -o pipefail; f=$(mktemp) || exit; trap 'rm -f -- "$f"' EXIT; curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v0.2.3/install.sh -o "$f" && printf '%s  %s\n' '2cce57e6512841b1af77fc49bf6ee1dbb2cd0caf1a3feb854a6cc272ecdc3499' "$f" | sha256sum -c - >/dev/null && bash "$f" --script-version 0.2.3 --allow-pre-script)
 ```
 
-此命令明确选择 [v0.2.2 实验发行](https://github.com/sprill-gt/SF-Xray-Hop/releases/tag/v0.2.2)，核对发行清单和完整包摘要。已取得完整源码／发行包时，在目录运行 `sudo bash install.sh`。正常安装不询问协议参数；交互成功后显示一次直连链接，非交互安装不输出凭据。已有安装复用身份及频道，不自动升级脚本。
+此命令明确选择 [v0.2.3 实验发行](https://github.com/sprill-gt/SF-Xray-Hop/releases/tag/v0.2.3)，先核对引导脚本固定摘要，再核对发行清单和完整包摘要；摘要不是独立签名。已取得完整源码／发行包时，在目录运行 `sudo bash install.sh`。正常安装不询问协议参数；交互成功后显示一次直连链接，非交互安装不输出凭据。已有安装复用身份及频道，不自动升级脚本。
 
 在线安装器默认查找项目正式 Release，**尚无正式发行版时明确停止**；维护者固定提交加摘要或指定实验 Release 是显式测试入口，不冒充正式版。[发行与更新方式](docs/operations.md)。
 

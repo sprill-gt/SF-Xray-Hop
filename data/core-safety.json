@@ -1,0 +1,18 @@
+{
+  "policy": "freedom-private-v1",
+  "targets": [
+    {"name": "loopback4", "host": "127.0.0.1", "ip": "127.0.0.1"},
+    {"name": "private10", "host": "10.23.45.67", "ip": "10.23.45.67"},
+    {"name": "private172", "host": "172.20.0.1", "ip": "172.20.0.1"},
+    {"name": "private192", "host": "192.168.254.254", "ip": "192.168.254.254"},
+    {"name": "linklocal4", "host": "169.254.240.1", "ip": "169.254.240.1"},
+    {"name": "loopback6", "host": "[::1]", "ip": "::1"},
+    {"name": "private6", "host": "[fd12:3456::1]", "ip": "fd12:3456::1"},
+    {"name": "linklocal6", "host": "[fe80::1]", "ip": "fe80::1"},
+    {"name": "mapped-loopback", "host": "[::ffff:127.0.0.1]", "ip": "127.0.0.1"},
+    {"name": "dns-loopback", "host": "loopback.sfxh.test", "ip": "127.0.0.1"},
+    {"name": "dns-private4", "host": "private4.sfxh.test", "ip": "10.23.45.67"},
+    {"name": "dns-private6", "host": "private6.sfxh.test", "ip": "fd12:3456::1"},
+    {"name": "dns-linklocal", "host": "linklocal.sfxh.test", "ip": "169.254.240.1"}
+  ]
+}

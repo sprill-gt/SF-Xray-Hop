@@ -130,11 +130,14 @@ sf_tx_apply() (
         }
     fi
     if ((runtime_change)); then
+        # Applies to new installs, normal updates AND explicit offline rollback.
+        # Historic "verified" metadata never substitutes for the current policy.
+        sf_core_security "$binary" || return
         sf_core_test "$binary" "$work/config.json" "$work/config-test.log" || return
         if [[ $mode == online ]]; then
             sf_msg '候选配置已通过语法检查，正在进行独立协议测试……'
             sf_probe_candidate "$candidate" "$binary" "$client_binary" "$work/candidate" || return
-        else sf_msg '显式离线恢复：只验证历史核心、配置与服务启动；公网与出口状态将记为未验证。'; fi
+        else sf_msg '显式离线恢复：已检查核心安全底线，继续验证配置与服务启动；公网与出口状态将记为未验证。'; fi
     fi
     id="$(date -u +%Y%m%dT%H%M%S)-$(sf_random)"; generation=$SFXH_ETC/generations/$id
     mkdir -m 700 "$generation" || return
