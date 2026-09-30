@@ -23,6 +23,12 @@ sf_core_security() (
     work=$(sf_temp) || return
     trap 'sf_stop_probe "$pid" "$unit"; sf_remove_tree "$work"' EXIT
     trap 'exit 130' INT TERM HUP
+    # The HTTPS bootstrap extracts under umask 077 before manager deployment.
+    # Bind mounting a root-only source file preserves its mode: DynamicUser
+    # cannot read it. Stage only these public probe inputs with explicit modes;
+    # the private parent, credentials and original source permissions stay intact.
+    install -m 644 "$SFXH_CODE/lib/core-safety-worker.sh" "$work/safety-worker.sh" &&
+      install -m 644 "$SFXH_CODE/data/core-safety.json" "$work/safety-targets.json" || return
     # PrivateNetwork prevents a failing/old candidate from touching host-private
     # destinations. The hosts file is bind-mounted ONLY in this temporary unit.
     jq -r '.targets[]|select(.host|endswith(".test"))|.ip+" "+.host' "$SFXH_CODE/data/core-safety.json" > "$work/hosts" || return
@@ -37,8 +43,8 @@ sf_core_security() (
        -p CapabilityBoundingSet= -p AmbientCapabilities= -p ProtectSystem=strict -p ProtectHome=yes \
        -p PrivateTmp=yes -p PrivateNetwork=yes -p UMask=0077 -p RuntimeMaxSec=120s -p TimeoutStopSec=3 -p KillMode=control-group \
        -p "BindReadOnlyPaths=$binary:/tmp/sfxh-safety-core" \
-       -p "BindReadOnlyPaths=$SFXH_CODE/lib/core-safety-worker.sh:/tmp/sfxh-safety-worker.sh" \
-       -p "BindReadOnlyPaths=$SFXH_CODE/data/core-safety.json:/tmp/sfxh-safety-targets.json" \
+       -p "BindReadOnlyPaths=$work/safety-worker.sh:/tmp/sfxh-safety-worker.sh" \
+       -p "BindReadOnlyPaths=$work/safety-targets.json:/tmp/sfxh-safety-targets.json" \
        -p "BindReadOnlyPaths=$work/hosts:/etc/hosts" \
        -- /usr/bin/bash /tmp/sfxh-safety-worker.sh /tmp/sfxh-safety-core /tmp/sfxh-safety-targets.json \
        > "$work/result.json" 2> "$work/unit.log") &
