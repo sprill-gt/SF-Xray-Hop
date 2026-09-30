@@ -58,7 +58,7 @@ cp "$SF_BOOT_TEST_ARCHIVE" "$dest"
     env.update(PATH=f'{root / "bin"}:{env["PATH"]}', TMPDIR=str(root / 'tmp'),
                SF_BOOT_TEST_ARCHIVE=str(archive), SF_BOOT_TEST_REPORT=str(report))
 
-    def pack(extra=None, version='0.2.2'):
+    def pack(extra=None, version='0.2.3'):
         with tarfile.open(archive, 'w:gz') as output:
             for name, data in [('sf-xray-hop', MANAGER), ('lib/ui.sh', b''), ('lib/install.sh', b''),
                                ('lib/common.sh', f'SFXH_VERSION={version}\n'.encode())]:
@@ -155,12 +155,12 @@ cp "$SF_BOOT_TEST_ARCHIVE" "$dest"
     # production manager. Assets are a complete tiny fake package and manifest.
     PREFIX = 'SF-Xray-Hop/'
     pack()
-    manifest = dict(schemaVersion=1, project='SF-Xray-Hop', version='0.2.2', commit=COMMIT,
-                    archive=dict(name='SF-Xray-Hop-0.2.2.tar.gz', sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), size=archive.stat().st_size))
+    manifest = dict(schemaVersion=1, project='SF-Xray-Hop', version='0.2.3', commit=COMMIT,
+                    archive=dict(name='SF-Xray-Hop-0.2.3.tar.gz', sha256=hashlib.sha256(archive.read_bytes()).hexdigest(), size=archive.stat().st_size))
     (root / 'manifest.json').write_text(json.dumps(manifest))
-    release = dict(tag_name='v0.2.2', draft=False, prerelease=False, published_at='2026-09-30', assets=[
-        dict(name=name, browser_download_url=f'https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.2/{name}')
-        for name in ('manifest.json', 'SF-Xray-Hop-0.2.2.tar.gz')])
+    release = dict(tag_name='v0.2.3', draft=False, prerelease=False, published_at='2026-09-30', assets=[
+        dict(name=name, browser_download_url=f'https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.3/{name}')
+        for name in ('manifest.json', 'SF-Xray-Hop-0.2.3.tar.gz')])
     (root / 'releases.json').write_text(json.dumps([release]))
     (root / 'release.json').write_text(json.dumps(release))
     (root / 'commit.json').write_text(json.dumps(dict(sha=COMMIT)))
@@ -186,12 +186,12 @@ esac
     check(result.returncode != 0 and not report.exists(), 'no official release stops instead of silently selecting main')
     release['prerelease'] = True
     (root / 'release.json').write_text(json.dumps(release))
-    result = run(['--script-version', '0.2.2', '--address', '203.0.113.10'], fixed=[])
+    result = run(['--script-version', '0.2.3', '--address', '203.0.113.10'], fixed=[])
     check(result.returncode != 0 and not report.exists(), 'explicit version still rejects prerelease without opt-in')
-    result = run(['--script-version', '0.2.2', '--allow-pre-script', '--address', '203.0.113.10'], fixed=[])
+    result = run(['--script-version', '0.2.3', '--allow-pre-script', '--address', '203.0.113.10'], fixed=[])
     check(result.returncode == 0 and report.exists(), 'maintainer can explicitly select and verify a project prerelease')
     (root / 'commit.json').write_text(json.dumps(dict(sha='b' * 40)))
-    result = run(['--script-version', '0.2.2', '--allow-pre-script', '--address', '203.0.113.10'], fixed=[])
+    result = run(['--script-version', '0.2.3', '--allow-pre-script', '--address', '203.0.113.10'], fixed=[])
     check(result.returncode != 0 and not report.exists(), 'release tag commit mismatch stops bootstrap before execution')
 
     offline = root / 'offline'

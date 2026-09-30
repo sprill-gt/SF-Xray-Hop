@@ -99,11 +99,29 @@ sf_probe_profile() (
 )
 sf_exit_compare() {
     local expected=$1 actual=$2 output=$3
-    jq -n --slurpfile e "$expected" --slurpfile a "$actual" '
+    jq -n --argjson checkedAt "$(date +%s)" --slurpfile e "$expected" --slurpfile a "$actual" '
+      def valid:
+        try (type=="object" and (.exit|type)=="object" and
+          (.exit.endpoint|type)=="string" and (.exit.endpoint|startswith("https://")) and
+          (.exit.family==4 or .exit.family==6) and (.exit.ips|type)=="array" and
+          (.exit.ips|length)>0 and all(.exit.ips[]; type=="string" and length>0)) catch false;
+      def time: try (.observedAt|fromdateiso8601) catch null;
+      ($e[0]|valid) as $ev | ($a[0]|valid) as $av |
+      ($e[0]|time) as $et | ($a[0]|time) as $at |
       $e[0].exit as $e | $a[0].exit as $a |
-      {status:(if $e.endpoint==null or $a.endpoint!=$e.endpoint or $a.family!=$e.family or ($a.ips|length)==0 or ($e.ips|length)==0 then "unconfirmed"
-        elif any($a.ips[]; . as $ip | $e.ips|index($ip)!=null) then "confirmed" else "mismatch" end),
-       expected:$e,observed:$a,scope:"同检测站、同地址族、短时出口样本比较"}' > "$output" || return
+      (if $ev and $av then ($a.ips-$e.ips|unique) else [] end) as $unknown |
+      (if ($ev and $av)|not then "invalid-samples"
+        elif $a.endpoint!=$e.endpoint or $a.family!=$e.family then "different-endpoint-or-family"
+        elif $et==null or $at==null then "missing-sample-time"
+        elif $checkedAt-$et>600 or $checkedAt-$at>600 or $et-$checkedAt>30 or $at-$checkedAt>30 then "stale-samples"
+        elif ($at-$et|fabs)>300 then "stale-samples"
+        elif ($unknown|length)==0 then "all-observed-expected"
+        elif ($a.ips-$unknown|length)==0 then "no-common-address"
+        else "unexpected-address" end) as $reason |
+      {status:(if $reason=="all-observed-expected" then "confirmed"
+        elif $reason=="no-common-address" then "mismatch" else "unconfirmed" end),
+       reason:$reason,unexpected:$unknown,expected:$e,observed:$a,
+       scope:"同检测站、同地址族、有限时间窗内的全部观测样本；不证明全流量无泄漏"}' > "$output" || return
     jq -e '.status=="confirmed"' "$output" >/dev/null || {
         sf_fail '出口未确认：完整中转路径与独立基准不符或无法比较；可能为错误路由、动态出口或检测站问题，停止提交。'; return 1;
     }
@@ -213,6 +231,7 @@ sf_doctor() (
     work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"' EXIT
     sf_validate_state "$state" && sf_generation_integrity "$(dirname "$state")" && sf_core_verify_archive "$(jq -r .core.id "$state")" || return
+    sf_core_security "$binary" || return
     sf_core_test "$binary" "$(dirname "$state")/config.json" "$work/config-test.log" || return
     systemctl is-active --quiet xray.service || { sf_msg '失败：xray.service 未运行'; fail=1; }
     [[ -n $(ss -H -ltn "sport = :$(jq -r .node.port "$state")") ]] || { sf_msg '失败：未检测到监听'; fail=1; }

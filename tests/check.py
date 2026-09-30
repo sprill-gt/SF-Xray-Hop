@@ -1,5 +1,6 @@
 """Portable source/docs checks; this does not claim Linux deployment acceptance."""
 import os
+import hashlib
 from pathlib import Path
 import re
 import shutil
@@ -9,6 +10,13 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BASH = os.environ.get("BASH_BIN") or shutil.which("bash") or r"C:\Program Files\Git\bin\bash.exe"
 failures = []
+readme = (ROOT / 'README.md').read_text(encoding='utf-8')
+bootstrap_hash = hashlib.sha256((ROOT / 'install.sh').read_bytes()).hexdigest()
+if bootstrap_hash not in readme or 'sha256sum -c -' not in readme:
+    failures.append('README bootstrap digest is missing or stale')
+version = re.search(r'^SFXH_VERSION=([0-9.]+)$', (ROOT/'lib/common.sh').read_text(), re.M)[1]
+if f'SFXH_SOURCE_VERSION={version}\n' not in (ROOT/'install.sh').read_text() or f'--script-version {version} ' not in readme:
+    failures.append('manager, bootstrap and README release versions disagree')
 shells = list(ROOT.glob("lib/*.sh")) + list(ROOT.glob("tests/*.sh")) + [ROOT / p for p in ("sf-xray-hop", "sfxh", "install.sh")]
 for file in shells:
     result = subprocess.run([BASH, "-n", str(file)], capture_output=True, text=True)

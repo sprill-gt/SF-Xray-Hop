@@ -53,4 +53,14 @@ mkdir "$work/guard"
 rc=0; sf_core_download "$work/changed-release.json" "$work/guard" inspect previous-archive-digest > "$work/guard.out" 2>&1 || rc=$?
 [[ $rc == 2 && ! -e $work/guard/unpacked ]]
 printf 'PASS changed same-tag archive requires consent before unpacking or executing core\n'
-printf 'TOTAL 5 core update guard checks (release, binary and commit fixtures)\n'
+# Use the real download orchestration; capability parsing and safety behavior
+# are independent boundaries. A safety failure must precede archive publication.
+unzip() { printf '#!/usr/bin/env bash\nexit 0\n'; }
+sf_core_capabilities() { printf 'Xray 26.9.9\n' > "$2/version.txt"; }
+sf_core_security() { return 1; }
+sf_core_publish() { touch "$TEST_WORK/unsafe-published"; }
+mkdir "$work/safety-guard"
+rc=0; sf_core_download "$work/changed-release.json" "$work/safety-guard" inspect > "$work/safety.out" 2>&1 || rc=$?
+[[ $rc != 0 && -f $work/safety-guard/version.txt && ! -f $work/unsafe-published ]]
+printf 'PASS candidate with matching release digest and capabilities still cannot publish after safety failure\n'
+printf 'TOTAL 6 core update guard checks (release, binary and commit fixtures)\n'

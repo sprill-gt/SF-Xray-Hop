@@ -4,6 +4,8 @@
 
 目标支持不等于安装通过；本机 Xray 连接不等于真实双 VPS 或设备验收。所有结果必须记录命令、时间、OS、core 版本和具体范围。
 
+0.2.3最新证据及发布门槛见[本轮审查处理](audit-0.2.2.md)。下列部署矩阵保留历史版本含义，不代表0.2.3已完成重新安装。
+
 ## 平台矩阵
 
 下列概览汇总v0.2.0／0.2.1的[R2真实部署记录](vps-r2-2026-09-30.md)，逐项版本及操作边界以记录为准。整机中断恢复在0.2.0执行；0.2.1追加运行版本修复、在线升级及Ubuntu22.04全新安装。更早的隔离回归保留于文末，不替代实机证据。
@@ -91,7 +93,7 @@ shellcheck --severity=warning --exclude=SC2034,SC1091 sf-xray-hop sfxh install.s
 
 ## 源码发行包
 
-`python3 tools/package.py` 从显式文件白名单创建 `artifacts/SF-Xray-Hop-<管理程序版本>.tar.gz` 和相邻SHA256文件；自动检查LF、固定Unix脚本权限，排除 `.cache/` 和测试凭据。当前版本0.2.2。正式发布清单使用 `python3 tools/package.py --release-commit <完整HEAD>`，必须为干净且匹配的提交。打包成功不等于完成全部平台验收。本地发行包摘要与 GitHub 固定提交 tar.gz 摘要不是同一个值，不可混用。
+`python3 tools/package.py` 从显式文件白名单创建 `artifacts/SF-Xray-Hop-<管理程序版本>.tar.gz` 和相邻SHA256文件；自动检查LF、固定Unix脚本权限，排除 `.cache/` 和测试凭据。当前版本0.2.3。正式发布清单使用 `python3 tools/package.py --release-commit <完整HEAD>`，必须为干净且匹配的提交。`python3 tests/package.py` 再核对摘要、逐文件字节、路径、权限及运行依赖。打包成功不等于完成全部平台验收。本地发行包摘要与 GitHub 固定提交 tar.gz 摘要不是同一个值，不可混用。
 
 ## 一键安装入口验收
 
