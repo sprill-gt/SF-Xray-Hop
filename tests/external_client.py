@@ -30,7 +30,7 @@ def main():
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     config["inbounds"] = [{"tag": "local-http", "listen": "127.0.0.1", "port": port, "protocol": "http", "settings": {}}]
-    result = {"label": args.label, "checkedAt": datetime.now(timezone.utc).isoformat(), "passed": False}
+    result = {"label": args.label, "checkedAt": datetime.now(timezone.utc).isoformat(), "passed": False, "requests": []}
     with tempfile.TemporaryDirectory(prefix="external-client-", dir=args.config.parent) as work:
         candidate = Path(work) / "client.json"
         candidate.write_text(json.dumps(config), encoding="utf-8")
@@ -51,11 +51,16 @@ def main():
                 raise RuntimeError("local client did not start")
             urls = ["https://api.ipify.org"] if args.expect_failure else ["https://api.ipify.org"] * 3 + ["https://www.cloudflare.com/cdn-cgi/trace"]
             observations = []
-            for url in urls:
+            result["plannedRequestCount"] = len(urls)
+            for index, url in enumerate(urls, start=1):
+                started = time.monotonic()
                 response = subprocess.run([args.curl, "--fail", "--silent", "--show-error", "--proxy",
                                            f"http://127.0.0.1:{port}", "--noproxy", "", "--connect-timeout", "6",
                                            "--max-time", "15", "--proto", "=https", url], capture_output=True,
                                           creationflags=flags, timeout=18)
+                request = {"index": index, "endpoint": url, "elapsedSeconds": round(time.monotonic() - started, 3),
+                           "curlExitCode": response.returncode, "passed": False}
+                result["requests"].append(request)
                 if args.expect_failure:
                     if response.returncode == 0:
                         raise RuntimeError("request unexpectedly succeeded during fail-closed test")
@@ -68,10 +73,12 @@ def main():
                         if observed != args.expect_exit:
                             raise RuntimeError(f"exit mismatch: expected {args.expect_exit}, observed {observed}")
                         observations.append(observed)
+                request["passed"] = True
             result.update(passed=True, requestCount=len(urls), observedExits=observations, expectedFailure=args.expect_failure)
         except Exception as error:
             result["error"] = str(error)
         finally:
+            result["requestCount"] = len(result["requests"])
             proc.terminate()
             try:
                 proc.wait(timeout=5)
