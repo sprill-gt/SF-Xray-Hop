@@ -1,6 +1,8 @@
 # 命令与数字菜单
 
-`sf-xray-hop` 与 `sfxh` 等价，管理操作使用 root／sudo。无参数进入中文数字菜单；主菜单空回车退出，子菜单0返回。无效数字留在当前步骤。非交互命令不等待菜单输入。
+`sf-xray-hop` 与 `sfxh` 等价，管理操作使用 root／sudo。无参数进入中文数字菜单；顶部明确显示“脚本版本”，与下方运行／配置核心版本分开。主菜单空回车退出，子菜单0返回。无效数字留在当前步骤。非交互命令不等待菜单输入。
+
+`sfxh version` 查看当前加载的管理脚本版本，无需 sudo、jq、安装节点或联网；`sfxh --version` 保持仅输出数字版本号，供自动化读取。更新菜单也显示当前脚本版本。两者都不会发起更新或重启服务。
 
 | 菜单 | 命令 | 用途 |
 |---|---|---|
@@ -18,6 +20,8 @@
 `core`、`node`、`self` 命令需要下列子命令；表中短写表示业务入口。单机的菜单4提示尚未开启链式；出口 B 的菜单4解释在 A 获取设备链接并显示用户登记的 A 地址，不伪造 A 的凭据。
 
 ```text
+sfxh version
+sfxh --version
 sfxh install [--address 地址] [--port 443] [--rtt 0|1]
              [--target auto|域名] [--name 名称]
              [--channel pre|stable] [--version 核心版本]
@@ -52,6 +56,8 @@ sfxh uninstall [--yes] [--keep-data]
 安装默认443、0-RTT、Chrome、XHTTP auto、archive.archlinux.org、pre；名称为内部稳定 ID 派生的 `node-短ID`。只在端口冲突、地址未知或验证失败等异常时提问。重复安装不重设现有频道。顶层 `--version` 显示脚本版本，install/core 的 `--version` 指核心；安装器 `--script-version` 指项目发行版，两者独立。
 
 `view` 和 `view json` 默认 Direct。`relay` 只面向入口设备，`handoff` 只在明确设为出口后提供。JSON 的本地 HTTP 端口为127.0.0.1:10809，不含服务端私钥。提示写 stderr，导出写 stdout。名字是备注而非凭据；修改后旧客户端的备注不会自动同步。
+
+JSON 是完整 Xray 客户端配置。GUI 的“自定义配置”可能直接采用其中的监听端口；例如现有 v2rayN 使用 10808 时，不能假定导入 10809 的 JSON 后应用代理端口自动匹配。测试时先核对本地端口和代理类型；导出的是 HTTP 入站，不应填入要求后端 SOCKS 的选项。普通使用优先导入已验证的长 URI，自定义 JSON 的 GUI 验收范围见[客户端记录](vps-lifecycle-0.2.5-2026-10-01.md)。
 
 ```bash
 sudo sh -c 'umask 077; sfxh view json direct > /root/direct-client.json'

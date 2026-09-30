@@ -44,10 +44,10 @@ tar -czf "$work/package.tar.gz" -C "$work/pack" SF-Xray-Hop
 sha=$(sf_hash "$work/package.tar.gz")
 commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 jq -n --arg sha "$sha" --arg commit "$commit" --argjson size "$(wc -c < "$work/package.tar.gz")" \
-  '{schemaVersion:1,project:"SF-Xray-Hop",version:"0.2.5",commit:$commit,archive:{name:"SF-Xray-Hop-0.2.5.tar.gz",sha256:$sha,size:$size}}' > "$work/manifest-source.json"
-jq -n --arg sha "$sha" '{id:1,tag_name:"v0.2.5",draft:false,prerelease:false,published_at:"2026-09-30",assets:[
-  {name:"manifest.json",browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.5/manifest.json"},
-  {name:"SF-Xray-Hop-0.2.5.tar.gz",digest:("sha256:"+$sha),browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.5/SF-Xray-Hop-0.2.5.tar.gz"}]}' > "$work/release-source.json"
+  '{schemaVersion:1,project:"SF-Xray-Hop",version:"0.2.6",commit:$commit,archive:{name:"SF-Xray-Hop-0.2.6.tar.gz",sha256:$sha,size:$size}}' > "$work/manifest-source.json"
+jq -n --arg sha "$sha" '{id:1,tag_name:"v0.2.6",draft:false,prerelease:false,published_at:"2026-09-30",assets:[
+  {name:"manifest.json",browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.6/manifest.json"},
+  {name:"SF-Xray-Hop-0.2.6.tar.gz",digest:("sha256:"+$sha),browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v0.2.6/SF-Xray-Hop-0.2.6.tar.gz"}]}' > "$work/release-source.json"
 sf_curl_download() {
     case "$1" in
         */releases\?*) jq -s . "$TEST_WORK/release-source.json" > "$2" ;;
@@ -58,7 +58,7 @@ sf_curl_download() {
     esac
 }
 sf_self_update --yes
-[[ $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 0.2.5 ]]
+[[ $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 0.2.6 ]]
 [[ $(readlink -f "$SFXH_INSTALL/previous-manager") == "$old" ]]
 [[ ! -e $work/service-calls ]]
 sf_generation_integrity "$(sf_generation)"
