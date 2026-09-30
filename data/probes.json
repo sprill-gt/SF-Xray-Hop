@@ -1,0 +1,5 @@
+{
+  "https": ["https://www.cloudflare.com/cdn-cgi/trace", "https://www.google.com/generate_204"],
+  "exit": ["https://api4.ipify.org", "https://ipv4.icanhazip.com", "https://api6.ipify.org", "https://ipv6.icanhazip.com"],
+  "performance": {"download": "https://speed.cloudflare.com/__down", "downloadMaxBytes": 99999999, "upload": "https://speed.cloudflare.com/__up"}
+}
