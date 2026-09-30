@@ -3,7 +3,7 @@
 # shellcheck disable=SC2120
 sf_os_read() {
     local file=${1:-/etc/os-release} key value
-    SF_OS_ID='' SF_OS_VERSION='' SF_OS_SUPPORT=target
+    SF_OS_ID='' SF_OS_VERSION=''
     [[ -r $file ]] || return 2
     while IFS='=' read -r key value; do
         value=${value%$'\r'}; value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
@@ -11,10 +11,6 @@ sf_os_read() {
     done < "$file"
     if [[ $SF_OS_ID == debian && $SF_OS_VERSION =~ ^(12|13)(\.[0-9]+)*$ ]] ||
        [[ $SF_OS_ID == ubuntu && $SF_OS_VERSION =~ ^24\.04(\.[0-9]+)*$ ]]; then return 0; fi
-    if [[ $SF_OS_ID == ubuntu && $SF_OS_VERSION =~ ^22\.04(\.[0-9]+)*$ ]]; then
-        SF_OS_SUPPORT=experimental
-        return 0
-    fi
     sf_usage_error "不支持的系统：$SF_OS_ID $SF_OS_VERSION；支持 Debian 12/13 和 Ubuntu 24.04。"
 }
 sf_platform_check() {
@@ -27,7 +23,6 @@ sf_platform_check() {
     free=$(LC_ALL=C df -Pk /var | awk 'NR==2 {print $4}')
     [[ $free =~ ^[0-9]+$ ]] && ((free >= 524288)) || { sf_fail '需要至少 512 MiB 可用磁盘空间。'; return 1; }
     sf_msg "系统检查通过：$SF_OS_ID $SF_OS_VERSION / amd64"
-    if [[ $SF_OS_SUPPORT == experimental ]]; then sf_msg 'Ubuntu 22.04 当前为实验兼容，验证结果请见 docs/testing.md。'; fi
 }
 sf_dependencies() {
     local pkg status log code

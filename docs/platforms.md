@@ -7,13 +7,25 @@
 | Debian 12 | amd64 | 实际部署待验证 |
 | Debian 13 | amd64 | 实际部署待验证 |
 | Ubuntu 24.04 LTS | amd64 | 24.04.3 实机安装、systemd、双跳通过；当前VMISS中转／入口 |
-| Ubuntu 22.04 LTS | amd64 | 实验兼容；实机安装、systemd、双跳通过；当前诺亚落地／出口 |
 
 v0.2.0已在这两台Ubuntu完成GitHub全新安装、systemd、中文向导和Windows独立设备双跳检查；更新、卸载及故障恢复的具体证据见[R2实机记录](vps-r2-2026-09-30.md)。Debian仍是目标支持，不能从Ubuntu结果外推。
 
 Ubuntu 24 指 24.04 LTS 系列点版本。发行版从 /etc/os-release 的 ID、VERSION_ID 判断，不通过 ID_LIKE 放行衍生版。需要可操作的 systemd；WSL 和容器检查不算 VPS 验收。
 
-Ubuntu 22.04 根据用户提供的测试机新增为实验兼容，安装和 doctor 显式提示此状态；没有扩大到 Ubuntu 20.04 或其他衍生系统。当前实机环境为 Bash 5.1／systemd249／jq1.6 与 Bash5.2／systemd255／jq1.7，两端均完成核心协议验证。详细范围及未测项见[验收记录](testing.md)。
+2026-10-01 决定停止 Ubuntu 22.04 的实验支持；当前源码的安装和 doctor 平台检查拒绝该系统及其点版本。已发布的 v0.2.4 标签、发行包和一键命令保持原样，因此这条限制尚不适用于该冻结发行。历史 Ubuntu 22.04 测试结果继续保留，不作为今后支持承诺。没有扩大到 Ubuntu 20.04 或其他衍生系统。
+
+v0.2.3 干净安装失败的根因是引导解包后的源文件权限与 DynamicUser 不兼容，已在 v0.2.4 修复，并在 Ubuntu 22.04 和 24.04 均通过；不能据此认定 Ubuntu 22.04 太旧。诺亚重启、换核后首批 TLS 错误的根因仍待定位，不能承诺换系统即可消除。详细证据见[当前生命周期记录](vps-lifecycle-0.2.4-2026-10-01.md)。
+
+## 两台测试机迁移至 Debian 13
+
+计划统一使用 Debian 13 amd64，方向保持 **设备 → VMISS 中转／入口 → 诺亚落地／出口 → Internet**。Debian 13 已有平台识别支持，但两台实机迁移、systemd 和真实双跳仍待验证；系统更新不等于吞吐提升或重连问题已修复。
+
+1. 重装前保存两台机器当前安装的私密备份，并确认供应商控制台可用。此前生命周期测试的原始备份早于最终重装，不能代替当前凭据备份。
+2. 在供应商控制台选择 Debian 13 amd64 的官方最小镜像，干净重装；不要将 Ubuntu 的 APT 源替换为 Debian 来跨发行版升级。
+3. 先准备诺亚出口，再准备 VMISS 入口，按双机向导导入诺亚的中转专用链接。全新安装会生成新身份；需要保留已发布入口链接时，须先核对当前状态与恢复方案。
+4. 重建 SSH 连接后，核对新主机指纹及真实 OS。使用同一 core、客户端和协议条件复测安装、权限、出口停启、整机重启、事务恢复和双跳，再更新验收矩阵。
+
+这份迁移计划尚未执行。Debian 13 官方支持 amd64，支持周期和镜像信息以[官方发行页](https://www.debian.org/releases/trixie/)为准。
 
 ## 安装方法
 
@@ -51,6 +63,6 @@ sudo bash install.sh --address 203.0.113.10 --port 443 --rtt 1 --target auto --v
 
 systemd 使用专用 `sfxray` 用户、`CAP_NET_BIND_SERVICE`、root 启动准备程序、只读系统目录与专用可写路径。正式服务依赖 network-online；启动准备程序校验归档和代次并恢复中断事务。安装时执行 unit 校验和正式链路复测；开机恢复测试需实际重启该 VPS，不能以 `enable` 成功替代。
 
-临时 Xray 候选、客户端、TLS 检测和测速客户端通过 systemd-run 的 DynamicUser 运行，有效能力为空。LoadCredential 向当前临时用户提供私密配置，管理目录保持0700；临时单元只监听回环、设置运行时限并按控制组结束。Ubuntu22.04的systemd249和Ubuntu24.04的systemd255已隔离验证，Debian 实机仍待验收。
+临时 Xray 候选、客户端、TLS 检测和测速客户端通过 systemd-run 的 DynamicUser 运行，有效能力为空。LoadCredential 向当前临时用户提供私密配置，管理目录保持0700；临时单元只监听回环、设置运行时限并按控制组结束。历史上已在Ubuntu22.04的systemd249和Ubuntu24.04的systemd255隔离验证；前者现已移出当前源码支持范围，Debian 实机仍待验收。
 
-官方来源：[Ubuntu 24.04](https://releases.ubuntu.com/24.04/)、[Debian 13](https://www.debian.org/releases/trixie/)。核对日期：2026-09-28。
+官方来源：[Ubuntu 24.04](https://releases.ubuntu.com/24.04/)（核对日期：2026-09-28）、[Debian 13](https://www.debian.org/releases/trixie/)及[发行说明](https://www.debian.org/releases/trixie/release-notes/)（核对日期：2026-10-01）。

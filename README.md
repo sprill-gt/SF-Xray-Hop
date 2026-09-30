@@ -8,7 +8,7 @@
 
 默认采用 Xray 官方 **Pre**、0-RTT、XHTTP auto、Chrome、TCP 443 和 `archive.archlinux.org`。26.9.9 是已验证协议基线；不是永久安装版本。更换下游保持入口连接参数，新导出链接的名称会反映新出口。
 
-目标平台：Debian 12、Debian 13、Ubuntu 24.04 LTS，amd64，systemd；Ubuntu 22.04 仅实验兼容。当前版本的测试证据见[验收记录](docs/testing.md)，不能用旧版本结果替代新版本部署验收。
+目标平台：Debian 12、Debian 13、Ubuntu 24.04 LTS，amd64，systemd。当前源码已移除 Ubuntu 22.04 的实验支持，已发布 v0.2.4 保持原样；Debian 实机部署仍待验证。[系统支持与迁移](docs/platforms.md) · [验收记录](docs/testing.md)。
 
 实验版一键安装（root，或已配置 sudo 的用户）：
 
