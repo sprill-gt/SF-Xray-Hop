@@ -31,3 +31,5 @@
 - [用户提供的完整 R2 需求快照](requirements-r2.md)
 
 - [Argon 建议复核与实施](archive/argon-review-20261101.md)
+
+- [0.2.10 节点C实机验收](live-verification-0.2.10.md)
