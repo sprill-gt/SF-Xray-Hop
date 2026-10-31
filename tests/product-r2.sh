@@ -73,8 +73,8 @@ sf_curl_download() {
       *) return 1 ;;
     esac
 }
-sf_release_metadata pre '' "$work/pre.json"; [[ $(jq -r .tag_name "$work/pre.json") == v26.10.1 ]]
-sf_release_metadata stable '' "$work/stable.json"; [[ $(jq -r .tag_name "$work/stable.json") == v99.1.0 ]]
+sf_project_release sprill-gt/SF-Xray-Hop pre '' "$work/pre.json"; [[ $(jq -r .tag_name "$work/pre.json") == v26.10.1 ]]
+sf_project_release sprill-gt/SF-Xray-Hop stable '' "$work/stable.json"; [[ $(jq -r .tag_name "$work/stable.json") == v99.1.0 ]]
 [[ $(sf_version_direction 26.10.1 26.9.9) == downgrade ]]
 pass 'release pagination, exact channel filtering and numerical comparison ignore date and lexical traps'
 sf_curl_download() { printf '[]' > "$2"; }
