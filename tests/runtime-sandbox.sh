@@ -10,11 +10,17 @@ SFXH_TEST_ROOT=$(mktemp -d /var/lib/sfxh-ci-sandbox.XXXXXXXX); export SFXH_TEST_
 unit=sfxh-ci-runtime.service
 created=0
 cleanup() {
+    local rc=$?
+    if ((rc)); then
+        systemctl status --no-pager "$unit" || :
+        journalctl --no-pager -u "$unit" -n 40 || :
+    fi
     systemctl stop "$unit" >/dev/null 2>&1 || :
     rm -f -- "/run/systemd/system/$unit"
     systemctl daemon-reload || :
     if ((created)); then userdel sfxray || :; fi
     [[ $SFXH_TEST_ROOT == /var/lib/sfxh-ci-sandbox.* && ! -L $SFXH_TEST_ROOT ]] && rm -rf -- "$SFXH_TEST_ROOT"
+    return "$rc"
 }
 trap cleanup EXIT
 umask 022
