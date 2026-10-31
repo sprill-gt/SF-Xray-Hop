@@ -8,7 +8,7 @@
 
 ## 平台矩阵
 
-当前支持范围仅声明 **Debian 13 与 Ubuntu 24.04.3 LTS、amd64**。0.2.5 最终公开候选包已按 VMISS Debian 13.3 入口 → 诺亚 Debian 13.7 出口通过双机生命周期测试，见[当前实机记录](vps-lifecycle-0.2.5-2026-10-01.md)及[剩余发布条件](release-candidate-0.2.5.md)。Debian 12、Ubuntu 22.04 的记录仅作历史参考。
+当前源码适配 **Debian 12/13 与 Ubuntu 24.04.3 LTS、amd64**；Debian 12 尚未进行实机安装或 systemd/网络验收，修复包含于 0.2.7 RC。0.2.5 最终公开候选包已按 VMISS Debian 13.3 入口 → 诺亚 Debian 13.7 出口通过双机生命周期测试，见[当前实机记录](vps-lifecycle-0.2.5-2026-10-01.md)及[剩余发布条件](release-candidate-0.2.5.md)。Ubuntu 22.04 的记录仅作历史参考。
 
 当前交付为 [0.2.6 RC](release-candidate-0.2.6.md)，只增加清晰的管理脚本版本入口并整理文档。用户已接手客户端与日常使用验收，本轮不追加 VPS 故障或压力测试；版本命令、本地源码／文档、发行包及现有 CI 检查与实机证据分别记录。
 

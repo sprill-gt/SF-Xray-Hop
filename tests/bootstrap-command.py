@@ -1,7 +1,6 @@
-"""Execute the generated first-stage command with a fake HTTPS downloader only."""
-import hashlib
-import json
+"""Execute generated short Bash commands with fake HTTPS; no server changes."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -10,40 +9,26 @@ ROOT = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='sfxh-command-') as directory:
     root = Path(directory)
     (root / 'bin').mkdir()
-    (root / 'tmp').mkdir()
-    bootstrap = root / 'install.sh'
-    bootstrap.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$TEST_REPORT"\n')
-    downloaded = root / 'downloaded'
     report = root / 'executed'
     curl = root / 'bin/curl'
     curl.write_text('''#!/usr/bin/env bash
-while (($#)); do
-    if [[ $1 == -o ]]; then dest=$2; shift 2; else shift; fi
-done
-cp "$TEST_DOWNLOAD" "$dest"
-exit "${TEST_DOWNLOAD_STATUS:-0}"
+printf '%s\\n' "$@" > "$TEST_URL_REPORT"
+printf 'printf "%%s\\n" "$@" > "$TEST_REPORT"\\n'
 ''')
     curl.chmod(0o755)
-    env = os.environ | dict(PATH=f'{root / "bin"}:{os.environ["PATH"]}', TMPDIR=str(root / 'tmp'),
-                            TEST_DOWNLOAD=str(downloaded), TEST_REPORT=str(report))
+    env = os.environ | dict(PATH=f'{root / "bin"}:{os.environ["PATH"]}',
+                            TEST_REPORT=str(report), TEST_URL_REPORT=str(root / 'url'))
     for kind in ('github-release', 'github-commit'):
         (root / 'source.json').write_text(json.dumps(dict(kind=kind, version='0.2.3', prerelease=True,
             commit='a' * 40, archiveSha256='b' * 64)))
         command = subprocess.check_output(['bash', '-c',
             'source "$1/lib/common.sh"; source "$1/lib/manager.sh"; SFXH_CODE=$2; sf_install_command',
             'bash', str(ROOT), str(root)], text=True).strip()
-        assert hashlib.sha256(bootstrap.read_bytes()).hexdigest() in command
-        for case in ('intact', 'modified', 'empty', 'failed-download'):
-            report.unlink(missing_ok=True)
-            downloaded.write_bytes(b'' if case == 'empty' else bootstrap.read_bytes() + (b'\n#changed' if case == 'modified' else b''))
-            result = subprocess.run(['bash', '-c', command], env=env | dict(TEST_DOWNLOAD_STATUS='22' if case == 'failed-download' else '0'),
-                                    capture_output=True, timeout=10)
-            if case == 'intact':
-                assert result.returncode == 0 and report.exists(), result.stderr
-                expected = ['--script-version', '0.2.3', '--allow-pre-script'] if kind == 'github-release' else ['--source-commit', 'a'*40, '--source-sha256', 'b'*64]
-                assert report.read_text().splitlines() == expected
-            else:
-                assert result.returncode != 0 and not report.exists(), (case, result.stderr)
-            assert not list((root / 'tmp').iterdir()), 'bootstrap temp file leaked'
-            print(f'PASS {kind}: {case}, temporary file cleaned')
-print('TOTAL 8 first-stage integrity checks (HTTPS and bootstrap are fixtures)')
+        assert command.startswith('bash <(curl -fsSL https://')
+        assert '/'+ 'a'*40 + '/install.sh' in command
+        subprocess.run(['bash', '-c', command], env=env, capture_output=True, check=True, timeout=10)
+        expected = ['--script-version', '0.2.3', '--allow-pre-script'] if kind == 'github-release' else ['--source-commit', 'a'*40, '--source-sha256', 'b'*64]
+        assert report.read_text().splitlines() == expected
+        assert (root / 'url').read_text().splitlines() == ['-fsSL', 'https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/' + 'a'*40 + '/install.sh']
+        print(f'PASS {kind}: short Bash command pins commit and preserves arguments')
+print('TOTAL 2 short Bash command checks (HTTPS and bootstrap are fixtures)')

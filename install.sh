@@ -2,7 +2,7 @@
 # Standalone HTTPS bootstrap and offline source entrypoint. No Git dependency.
 set -uo pipefail
 umask 077
-SFXH_SOURCE_VERSION=0.2.6
+SFXH_SOURCE_VERSION=0.2.7
 SFXH_SOURCE_COMMIT=''
 SFXH_SOURCE_SHA256=''
 SFXH_BOOT_ACTION=install
@@ -18,10 +18,19 @@ sf_boot_release() {
     local work=$1 page count version name digest url commit
     command -v curl >/dev/null || { printf '正式发行入口需要 curl。\n' >&2; return 2; }
     if ! command -v jq >/dev/null; then
-        printf '准备发行清单解析依赖 jq（不升级系统）。\n' >&2
-        local -a apt=(apt-get -o DPkg::Lock::Timeout=60 install -y jq)
-        if ((EUID!=0)); then apt=(sudo -- "${apt[@]}"); fi
-        "${apt[@]}" >&2 || { printf '无法安装 jq，请检查 APT 锁、软件源或权限后重试。\n' >&2; return 1; }
+        printf '刷新 APT 索引并安装 jq（不执行整机升级）。\n' >&2
+        command -v apt-get >/dev/null || { printf '需要 Debian 12/13 或 Ubuntu 24.04 的 APT。\n' >&2; return 2; }
+        local -a apt=(env LC_ALL=C DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get -o DPkg::Lock::Timeout=60)
+        if ((EUID!=0)); then
+            command -v sudo >/dev/null || { printf '请以 root 登录后重新执行安装命令，或先安装 sudo。\n' >&2; return 2; }
+            apt=(sudo -- "${apt[@]}")
+        fi
+        "${apt[@]}" -o APT::Update::Error-Mode=any update >&2 || {
+            printf 'APT 索引刷新失败；请检查软件源、网络或 APT 锁后重试。\n' >&2; return 1;
+        }
+        "${apt[@]}" install -y --no-install-recommends jq >&2 || {
+            printf '无法安装 jq，请检查 APT 锁、软件源或权限后重试。\n' >&2; return 1;
+        }
     fi
     if [[ -n $SFXH_SCRIPT_VERSION ]]; then
         [[ $SFXH_SCRIPT_VERSION =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]] || return 2
@@ -145,7 +154,7 @@ sf_boot_download() (
 sf_boot_main() {
     local root='' source_path=${BASH_SOURCE[0]:-}
     if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-        printf 'SF-Xray-Hop 一键安装\n默认安装项目最新正式 Release；无正式版时明确停止。\n测试发行：--script-version 版本 --allow-pre-script\n固定源码：--source-commit 完整SHA --source-sha256 压缩包摘要\n--upgrade-manager：只升级管理脚本；安装默认0-RTT。\n'
+        printf 'SF-Xray-Hop 一键安装\n默认安装项目最新正式 Release；无正式版时明确停止。\n当前 RC：--rc\n测试发行：--script-version 版本 --allow-pre-script\n固定源码：--source-commit 完整SHA --source-sha256 压缩包摘要\n--upgrade-manager：只升级管理脚本；安装默认0-RTT。\n'
         return 0
     fi
     local -a args=()
@@ -156,6 +165,7 @@ sf_boot_main() {
                 if [[ $1 == --source-commit ]]; then SFXH_SOURCE_COMMIT=$2; else SFXH_SOURCE_SHA256=$2; fi
                 shift 2 ;;
             --upgrade-manager) SFXH_BOOT_ACTION=upgrade; shift ;;
+            --rc) SFXH_SCRIPT_VERSION=$SFXH_SOURCE_VERSION; SFXH_SCRIPT_PRE=1; shift ;;
             --script-version) [[ $# -ge 2 ]] || return 2; SFXH_SCRIPT_VERSION=${2#v}; shift 2 ;;
             --allow-pre-script) SFXH_SCRIPT_PRE=1; shift ;;
             --) shift; args+=("$@"); break ;;

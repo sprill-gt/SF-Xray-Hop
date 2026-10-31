@@ -10,13 +10,10 @@ sf_source_info() {
     else printf '{"kind":"package"}\n'; fi
 }
 sf_install_command() {
-    local source commit hash bootstrap args pre=''
+    local source commit hash args pre=''
     source=$(sf_source_info) || return
     commit=$(jq -r '.commit//empty' <<< "$source"); hash=$(jq -r '.archiveSha256//empty' <<< "$source")
     [[ -n $commit && -n $hash ]] || return 1
-    # Installed source.json and install.sh belong to the same verified payload.
-    # Authenticate the bootstrap BEFORE executing it, including wizard handoffs.
-    bootstrap=$(sf_hash "$SFXH_CODE/install.sh") || return
     if [[ $(jq -r .kind <<< "$source") == github-release ]]; then
         [[ $(jq -r '.prerelease // false' <<< "$source") != true ]] || pre=' --allow-pre-script'
         args="--script-version $(jq -r .version <<< "$source")$pre"
@@ -24,7 +21,7 @@ sf_install_command() {
         args="--source-commit $commit --source-sha256 $hash"
     fi
     cat <<EOF
-(set -o pipefail; f=\$(mktemp) || exit; trap 'rm -f -- "\$f"' EXIT; curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/$commit/install.sh -o "\$f" && printf '%s  %s\\n' '$bootstrap' "\$f" | sha256sum -c - >/dev/null && bash "\$f" $args)
+bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/$commit/install.sh) $args
 EOF
 }
 sf_manager_copy() {
