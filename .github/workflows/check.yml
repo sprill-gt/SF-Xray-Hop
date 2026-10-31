@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Bootstrap fixture dependencies
         run: apt-get -o APT::Update::Error-Mode=any update && apt-get install -y --no-install-recommends bash ca-certificates curl git python3 jq shellcheck
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Static and bootstrap fixtures (no systemd acceptance)
@@ -42,7 +42,7 @@ jobs:
             sha256: 'e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214'
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Dependencies
