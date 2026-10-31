@@ -21,14 +21,16 @@ jq -n --arg direct "$direct" --arg relay "$relay" '
    inbounds:[{tag:"guard-vless",listen:"127.0.0.1",port:19501,protocol:"vless",settings:{decryption:"none",
      clients:[{id:$direct,email:"sf-xray-hop-direct"},{id:$relay,email:"sf-xray-hop-relay"}]}},
      local_http("guard-direct";19502),local_http("guard-relay";19503),
+     {tag:"guard-udp-direct",listen:"127.0.0.1",port:19505,protocol:"dokodemo-door",settings:{address:"127.0.0.1",port:19504,network:"udp"}},
+     {tag:"guard-udp-relay",listen:"127.0.0.1",port:19506,protocol:"dokodemo-door",settings:{address:"127.0.0.1",port:19504,network:"udp"}},
      {tag:"guard-receiver",listen:"::",port:19504,protocol:"dokodemo-door",settings:{address:"127.0.0.1",port:9,network:"tcp"}}],
    outbounds:[{tag:"reject",protocol:"blackhole"},
      {tag:"response",protocol:"blackhole",settings:{response:{type:"http"}}},
      {tag:"guard-freedom",protocol:"freedom"},client("client-direct";$direct),client("client-relay";$relay)],
    routing:{domainStrategy:"AsIs",rules:[
      {type:"field",inboundTag:["guard-receiver"],outboundTag:"response"},
-     {type:"field",inboundTag:["guard-direct"],outboundTag:"client-direct"},
-     {type:"field",inboundTag:["guard-relay"],outboundTag:"client-relay"},
+     {type:"field",inboundTag:["guard-direct","guard-udp-direct"],outboundTag:"client-direct"},
+     {type:"field",inboundTag:["guard-relay","guard-udp-relay"],outboundTag:"client-relay"},
      {type:"field",inboundTag:["guard-vless"],domain:["full:control.sfxh.test"],outboundTag:"response"},
      {type:"field",inboundTag:["guard-vless"],user:["sf-xray-hop-direct","sf-xray-hop-relay"],outboundTag:"guard-freedom"}]}}
 ' > "$work/config.json"
@@ -67,6 +69,21 @@ for proxy in 19502 19503; do
         ((checks+=1))
     done < <(jq -r '.targets[]|[.name,.host,.ip]|@tsv' "$targets")
 done
+udp_checks=0
+for proxy in 19505 19506; do
+    pattern='blocked target: udp:127.0.0.1:19504'
+    before=$(grep -Fc "$pattern" "$work/core.log" || :)
+    printf 'sfxh-udp-canary' > "/dev/udp/127.0.0.1/$proxy"
+    confirmed=0
+    for attempt in {1..30}; do
+        after=$(grep -Fc "$pattern" "$work/core.log" || :)
+        if ((after>before)); then confirmed=1; break; fi
+        kill -0 "$pid" || exit 1
+        sleep 0.1
+    done
+    ((confirmed)) || { printf 'udp-private-target-protection-unconfirmed: profile=%s\n' "$proxy" >&2; exit 1; }
+    ((udp_checks+=1))
+done
 kill -0 "$pid"
-jq -n --argjson checks "$checks" '{status:"pass",tcpChecks:$checks,identities:2,receiverControls:2,authenticatedControls:2,
-  scope:"isolated VLESS-to-freedom TCP private-address canaries; not a full core security audit"}'
+jq -n --argjson udp "$udp_checks" --argjson checks "$checks" '{status:"pass",tcpChecks:$checks,udpChecks:$udp,identities:2,receiverControls:2,authenticatedControls:2,
+  scope:"isolated VLESS-to-freedom TCP private-address and UDP loopback canaries; not a full core security audit"}'

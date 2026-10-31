@@ -12,7 +12,13 @@ SFXH_SOURCE_KIND=github-commit
 SFXH_SOURCE_PRERELEASE=false
 
 sf_boot_fetch() {
-    curl --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 --retry 2 "$1" -o "$2"
+    local token=${SFXH_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}
+    local -a headers=()
+    if [[ $1 == https://api.github.com/repos/* && -n $token ]]; then
+        [[ $token =~ ^[A-Za-z0-9_.-]+$ ]] || { printf 'GitHub Token 格式无效。\n' >&2; return 2; }
+        headers=(--header @-)
+    else token=''; fi
+    curl "${headers[@]}" --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 --retry 2 "$1" -o "$2" <<< "Authorization: Bearer $token"
 }
 sf_boot_release() {
     local work=$1 page count version name digest url commit

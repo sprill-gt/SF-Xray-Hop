@@ -67,6 +67,12 @@ sf_client_config "$work/profile.json" "$work/client.json"
 sf_core_test "$binary" "$work/client.json" "$work/client-test.log"
 jq -e '..|objects|select(has("privateKey") or has("decryption"))' "$work/client.json" >/dev/null && exit 1
 pass 'complete client JSON validates and contains no server private material'
+sf_export_client_config "$work/profile.json" "$work/exported.json"
+sf_core_test "$binary" "$work/exported.json" "$work/exported-test.log"
+jq -e '.inbounds|length==2 and all(.[];.listen=="127.0.0.1") and any(.[];.protocol=="socks" and .port==10808 and .settings.udp==true)' "$work/exported.json" >/dev/null
+jq -e '.routing.rules[0].inboundTag|sort==["local-http","local-socks"]' "$work/exported.json" >/dev/null
+pass 'exported loopback HTTP and SOCKS UDP config validates'
+
 sf_rtt_values "$work/state.json" 1 "$work/state1.json"
 sf_validate_state "$work/state1.json"
 jq -e --slurpfile old "$work/state.json" '(.encryption.decryption|split(".")[2])=="0s" and (.encryption.encryption|split(".")[2])=="1rtt" and .identities==$old[0].identities and (.encryption.decryption|split(".")[3])==($old[0].encryption.decryption|split(".")[3])' "$work/state1.json" >/dev/null

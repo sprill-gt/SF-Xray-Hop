@@ -1,5 +1,7 @@
 # 协议与源码依据
 
+2026-11-01 补充：已完成[26.10.31 配置审查](protocol-audit-20261101.md)及[生产优化、内核修复和 TCP/UDP 验证](protocol-optimization-20261101.md)。下文保留 26.9.9 初始依据，不把历史基线当作当前部署版本。
+
 核对日期：2026-09-28。初始基线：[Xray-core v26.9.9](https://github.com/XTLS/Xray-core/releases/tag/v26.9.9)。源码 commit 前缀 52a412d。下述为源码依据，实际二进制结果另见测试记录。
 
 ## Encryption、Vision 与 RTT
