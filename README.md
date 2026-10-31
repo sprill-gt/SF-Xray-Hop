@@ -10,7 +10,7 @@
 
 核心默认安装、检查及更新都会比较正式版与 Pre，按数字版本取较大者，同号优先正式版；手动选版本用 `sudo sfxh core select 26.9.9`，最低 26.9.9。菜单9更新最新核心，10输入版本号，11恢复历史核心，12卸载。[命令说明](docs/cli.md)。
 
-当前源码适配 **Debian 12/13 和 Ubuntu 24.04.3 LTS**，amd64，systemd。Debian 12 已恢复平台检测，但尚待实机安装、服务和网络验收；旧版 0.2.6 RC 仍拒绝 Debian 12，请使用下方 0.2.8 命令。Ubuntu 22.04 不在支持范围。[系统支持与迁移](docs/platforms.md) · [验收记录](docs/testing.md)。
+当前源码适配 **Debian 12/13 和 Ubuntu 24.04.3 LTS**，amd64，systemd。Debian 12.12 已在节点C通过真实安装、服务重启、9项服务器检查与6次独立Windows公网请求；旧版 0.2.6 RC 仍拒绝 Debian 12，请使用下方 0.2.8 命令。Ubuntu 22.04 不在支持范围。[系统支持与迁移](docs/platforms.md) · [本次节点C验收](docs/vps-node_c-0.2.8-20261101.md) · [验收记录](docs/testing.md)。
 
 RC 远程 Bash 安装命令（root，或已配置 sudo 的用户）：
 
