@@ -106,7 +106,7 @@ sf_release_metadata() {
 sf_project_release() (
     local repo=$1 channel=$2 version=$3 dest=$4 page=1 count work
     [[ $repo == XTLS/Xray-core || $repo == sprill-gt/SF-Xray-Hop ]] || return 2
-    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]]
+    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
     [[ $channel != auto || $repo == XTLS/Xray-core ]] || return 2
     work=$(mktemp -d "${dest}.pages.XXXXXXXX") || return
     trap 'rm -rf -- "$work"' EXIT
