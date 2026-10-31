@@ -7,5 +7,6 @@ shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh test
 python3 tests/bootstrap-command.py
 bash tests/bootstrap-dependencies.sh
 bash tests/releases-auto.sh
+bash tests/self-channels.sh
 bash tests/asset-resume.sh
 bash tests/argon-review.sh

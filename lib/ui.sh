@@ -272,8 +272,8 @@ sf_connection_menu() {
 }
 sf_self_menu() {
     sf_self_info
-    sf_ask_choice '脚本自身更新（核心与节点参数保持）' '1. 更新到最新项目正式发行版' '2. 回滚上一个可恢复脚本' '0. 返回' || return
-    case "$SF_REPLY" in 1) sf_self_update || return ;; 2) sf_self_rollback || return ;; 0) return 0 ;; esac
+    sf_ask_choice '脚本自身更新（核心与节点参数保持）' '1. 切换或更新到最新稳定版' '2. 回滚上一个可恢复脚本' '3. 切换或更新到最新测试版' '0. 返回' || return
+    case "$SF_REPLY" in 1) sf_self_update --channel stable || return ;; 2) sf_self_rollback || return ;; 3) sf_self_update --channel pre || return ;; 0) return 0 ;; esac
     if [[ ${SFXH_TEST_MODE:-0} != 1 ]]; then exec bash "$SFXH_INSTALL/sf-xray-hop" menu; fi
 }
 sf_test_menu() {
@@ -338,7 +338,7 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式
   core rollback [版本号|完整归档ID|--previous] [--offline]
                                 版本号为在线选择；离线仅限已验证本地归档
   core prune                    保留至少5个已验证核心
-  self check / update [--version 版本 --allow-pre] [--yes]
+  self check / update [--channel stable|pre] [--version 版本 --allow-pre] [--yes]
   self rollback [--yes]          验证当前状态后回退管理脚本
   tune bbr [on|off|status]       可选开启 BBR + fq／恢复原值，默认不修改
   logs                          脱敏日志

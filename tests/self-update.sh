@@ -67,6 +67,40 @@ sf_self_rollback --yes
 [[ $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 0.1.9 ]]
 sf_self_update --yes
 pass 'manual rollback validates current state and preserves protocol material'
+declare -f sf_curl_download > "$work/stable-curl.sh"
+cp "$work/package.tar.gz" "$work/stable-package.tar.gz"
+sf_manager_copy "$SFXH_CODE" "$work/pre-pack/SF-Xray-Hop"
+sed -i 's/^SFXH_VERSION=.*/SFXH_VERSION=1.1.1/' "$work/pre-pack/SF-Xray-Hop/lib/common.sh"
+sed -i 's/^SFXH_SOURCE_VERSION=.*/SFXH_SOURCE_VERSION=1.1.1/' "$work/pre-pack/SF-Xray-Hop/install.sh"
+tar -czf "$work/pre-package.tar.gz" -C "$work/pre-pack" SF-Xray-Hop
+pre_sha=$(sf_hash "$work/pre-package.tar.gz")
+jq --arg sha "$pre_sha" --argjson size "$(wc -c < "$work/pre-package.tar.gz")" '.version="1.1.1"|.archive={name:"SF-Xray-Hop-1.1.1.tar.gz",sha256:$sha,size:$size}' "$work/manifest-source.json" > "$work/pre-manifest.json"
+jq --arg sha "$pre_sha" '.id=2|.tag_name="v1.1.1"|.prerelease=true|.assets=[
+ {name:"manifest.json",browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v1.1.1/manifest.json"},
+ {name:"SF-Xray-Hop-1.1.1.tar.gz",digest:("sha256:"+$sha),browser_download_url:"https://github.com/sprill-gt/SF-Xray-Hop/releases/download/v1.1.1/SF-Xray-Hop-1.1.1.tar.gz"}]' "$work/release-source.json" > "$work/pre-release.json"
+sf_curl_download() {
+    case "$1" in
+        */releases\?*) jq -s . "$TEST_WORK/release-source.json" "$TEST_WORK/pre-release.json" > "$2" ;;
+        */v1.1.1/manifest.json) cp "$TEST_WORK/pre-manifest.json" "$2" ;;
+        */v1.1.1/*.tar.gz) cp "$TEST_WORK/pre-package.tar.gz" "$2" ;;
+        */manifest.json) cp "$TEST_WORK/manifest-source.json" "$2" ;;
+        */commits/*) printf '{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}' > "$2" ;;
+        *.tar.gz) cp "$TEST_WORK/stable-package.tar.gz" "$2" ;;
+        *) return 1 ;;
+    esac
+}
+state_sha=$(sf_hash "$(sf_state)")
+sf_self_update --channel pre --yes
+[[ $(sf_self_channel) == pre && $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 1.1.1 ]]
+sf_self_update --channel stable --yes
+[[ $(sf_self_channel) == stable && $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 1.1.0 ]]
+[[ $(sf_hash "$(sf_state)") == "$state_sha" && ! -e $work/service-calls ]]
+printf damage >> "$work/pre-package.tar.gz"
+reject sf_self_update --channel pre --yes
+[[ $(sf_self_channel) == stable && $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 1.1.0 ]]
+source "$work/stable-curl.sh"
+pass 'stable to Pre to stable preserves node/service; failed switch retains stable source channel'
+
 sf_manager_copy "$SFXH_CODE" "$work/incompatible"
 sed -i 's/^SFXH_VERSION=.*/SFXH_VERSION=0.1.8/' "$work/incompatible/lib/common.sh"
 sed -i 's/\.schemaVersion==[12]/.schemaVersion==0/g' "$work/incompatible/templates/model.jq"

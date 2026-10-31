@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
+sf_self_channel() {
+    local root=$SFXH_CODE source
+    if [[ -L $SFXH_INSTALL/sf-xray-hop ]]; then root=$(dirname "$(readlink -f "$SFXH_INSTALL/sf-xray-hop")") || return; fi
+    source=$(sf_source_info "$root") || return
+    if [[ $(jq -r '.prerelease==true' <<< "$source") == true ]]; then printf 'pre\n'; else printf 'stable\n'; fi
+}
+sf_self_channel_label() { if [[ $1 == pre ]]; then printf '测试版\n'; else printf '稳定版\n'; fi; }
 sf_self_info() {
     local state
-    sf_msg "脚本版本：$SFXH_VERSION"
+    sf_msg "脚本版本：$SFXH_VERSION；当前通道：$(sf_self_channel_label "$(sf_self_channel)")"
     if state=$(sf_state); then sf_msg "核心配置版本：$(jq -r '.core.version+" / "+.core.channel' "$state")；脚本更新不更换核心。"; fi
     sf_msg "实际运行核心：$(sf_running_core_version || printf '—')"
 }
 sf_self_resolve() {
-    local dest=$1 version=${2:-} allow=${3:-} channel=stable
+    local dest=$1 version=${2:-} allow=${3:-} channel=${4:-}
+    [[ -z $channel || $channel == stable || $channel == pre ]] || return 2
+    [[ -n $channel ]] || channel=$(sf_self_channel) || return
     if [[ -n $allow ]]; then
-        [[ -n $version ]] || { sf_usage_error '实验脚本必须明确 --version，不能跟随浮动测试版本。'; return 2; }
+        [[ -n $version ]] || { sf_usage_error '--allow-pre 必须同时指定 --version；跟随测试版请使用 --channel pre。'; return 2; }
         channel=pinned
     fi
     sf_project_release sprill-gt/SF-Xray-Hop "$channel" "$version" "$dest" || {
@@ -16,13 +25,13 @@ sf_self_resolve() {
     }
 }
 sf_self_check() (
-    local work version='' allow=''
+    local work version='' allow='' channel=''
     while (($#)); do
-        case "$1" in --version) [[ $# -ge 2 ]] || return 2; version=${2#v}; shift 2 ;; --allow-pre) allow=1; shift ;; *) return 2 ;; esac
+        case "$1" in --channel) [[ $# -ge 2 ]] || return 2; channel=$2; shift 2 ;; --version) [[ $# -ge 2 ]] || return 2; version=${2#v}; shift 2 ;; --allow-pre) allow=1; shift ;; *) return 2 ;; esac
     done
     work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"' EXIT
-    sf_self_resolve "$work/release.json" "$version" "$allow" || return
+    sf_self_resolve "$work/release.json" "$version" "$allow" "$channel" || return
     version=$(jq -r '.tag_name|ltrimstr("v")' "$work/release.json")
     sf_curl_download "https://api.github.com/repos/sprill-gt/SF-Xray-Hop/commits/v$version" "$work/commit.json" || return
     jq -e '.sha|test("^[a-f0-9]{40}$")' "$work/commit.json" >/dev/null || return
@@ -207,16 +216,19 @@ sf_manager_switch() (
     sf_msg "管理脚本已切换：${next##*/}；运行核心、身份和下游保持不变。"
 )
 sf_self_update() (
-    local work version='' allow='' consent=''
+    local work version='' allow='' consent='' channel=''
     while (($#)); do
-        case "$1" in --version) [[ $# -ge 2 ]] || return 2; version=${2#v}; shift 2 ;; --allow-pre) allow=1; shift ;; --yes) consent=1; shift ;; *) return 2 ;; esac
+        case "$1" in --channel) [[ $# -ge 2 ]] || return 2; channel=$2; shift 2 ;; --version) [[ $# -ge 2 ]] || return 2; version=${2#v}; shift 2 ;; --allow-pre) allow=1; shift ;; --yes) consent=1; shift ;; *) return 2 ;; esac
     done
     sf_installed && sf_recover && sf_lock || return
     work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"; sf_unlock' EXIT
-    sf_self_resolve "$work/release.json" "$version" "$allow" && sf_self_download "$work/release.json" "$work" || return
+    sf_self_resolve "$work/release.json" "$version" "$allow" "$channel" && sf_self_download "$work/release.json" "$work" || return
     sf_manager_compatible "$work/package" "$work" || return
-    sf_msg "脚本：$SFXH_VERSION → $(jq -r .version "$work/manifest.json")"
+    sf_msg "脚本：$SFXH_VERSION → $(jq -r .version "$work/manifest.json")；目标通道：$(if [[ $(jq -r .prerelease "$work/release.json") == true ]]; then sf_self_channel_label pre; else sf_self_channel_label stable; fi)"
+    if [[ $(sf_version_direction "$SFXH_VERSION" "$(jq -r .version "$work/manifest.json")") == downgrade ]]; then
+        sf_msg '目标脚本版本号较低；这是本次选择的脚本回退，节点和核心设置保持。'
+    fi
     [[ -n $consent ]] || sf_confirm '发行包已验证；确认只更新管理脚本？运行核心与节点参数保持。' || return
     sf_manager_switch "$work/package"
 )

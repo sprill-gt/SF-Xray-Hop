@@ -93,3 +93,9 @@ sudo sfxh chain set < /root/exit-handoff.uri
 `sfxh tune bbr status` 查看；`sfxh tune bbr on` 显式开启 BBR + fq；`sfxh tune bbr off` 恢复原值。菜单 5 → 3 提供同样的选项。新装可选 `--bbr on`，默认 off，已有安装重复运行 install 不会接管 BBR。
 
 仅使用当前内核提供的 BBR；不下载第三方脚本、不替换内核、不重启。内核版本至少 4.9，模块不可用、缺少权限或共享内核容器会停止。开启前记录两个 sysctl 原值，使用本项目独立的 sysctl.d 和 modules-load.d 文件；卸载先恢复。外部编辑或其他工具修改了已接管值时停止恢复并保留记录，需人工协调后重试。
+
+## 脚本稳定版与测试版互切
+
+`sfxh self check --channel stable|pre` 查询指定脚本通道；`sfxh self update --channel stable|pre [--yes]` 先核对 Release、清单、提交及完整包，再事务切换脚本。菜单 8 的选项 1 为稳定版、选项 3 为测试版。这里的通道只指项目脚本，与 `core track` 完全独立。
+
+无参 self check/update 跟随当前安装脚本的已验证 Release 来源；旧安装或本地包缺少来源时默认为 stable。成功切换后以新 Release 来源作为后续通道，失败仍保留原脚本及来源，因而不需要另外写通道偏好文件。测试版回稳定版可能使脚本版本号降低，仍保留节点身份、核心版本及原始状态；脚本兼容性检查不能绕过。`--version ... --allow-pre` 的精确实验版本入口继续兼容。
