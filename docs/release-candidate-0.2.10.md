@@ -1,6 +1,6 @@
 # v0.2.10 RC（待发布）
 
-日期：2026-11-01（UTC+8）。本次未连接、部署或重启任何生产服务器；未创建 0.2.10 tag 或 Release。草稿 [PR #1](https://github.com/sprill-gt/SF-Xray-Hop/pull/1) 包含源码及验证。
+日期：2026-11-01（UTC+8）。初次实现和隔离验收阶段未连接生产服务器；用户后续授权的云途实机验收见[实测记录](live-verification-0.2.10.md)。未创建 0.2.10 tag 或 Release。草稿 [PR #1](https://github.com/sprill-gt/SF-Xray-Hop/pull/1) 包含源码及验证。
 
 ## 改动
 
@@ -32,4 +32,4 @@
 
 Debian 12/13 的完整真实 systemd install → restart → core update → rollback → uninstall 生命周期尚未验收；当前 Debian 矩阵为引导/逻辑测试，不能替代这项证据。
 
-BBR 的真实内核持久化、不同虚拟化环境、重启后恢复尚未实测；当前为可恢复逻辑和所有权边界测试。未测公网设备或生产链路。发行/attestation 工作流尚未由正式 tag 触发，不能宣称已经生成可公开验证的发行证明。可选的每周跟随上游浮动核心任务未启用。
+云途已完成真实 BBR 文件/ownership/sysctl 接管与恢复、加固服务重启和独立 Windows 公网请求。原始 BBR 已开启；从未加载模块开始、不同虚拟化环境及整机重启后恢复尚未实测。发行/attestation 工作流尚未由正式 tag 触发，不能宣称已经生成可公开验证的发行证明。可选的每周跟随上游浮动核心任务未启用。
