@@ -2,7 +2,7 @@
 
 后续：用户要求优化后，已执行核心升级、节点C内核修复、节点A BBR 对照及扩展 TCP/UDP 回归，见[实际优化与验收](protocol-optimization-20261101.md)。以下保留变更前审查快照。
 
-日期：2026-11-01（UTC+8）。对象：当前 SF-Xray-Hop 源码，以及 SSH 别名 node_b（节点B）、node_a（节点A）、node_c（节点C）的运行配置。只读检查服务器；未更新核心、修改 sysctl、替换身份或重启服务。
+日期：2026-11-01（UTC+8）。对象：当前 SF-Xray-Hop 源码，以及 SSH 别名 node-b（节点B）、node-a（节点A）、node-c（节点C）的运行配置。只读检查服务器；未更新核心、修改 sysctl、替换身份或重启服务。
 
 结论：现有 VLESS Encryption + Vision + XHTTP + REALITY 组合正确，26.10.31 的真实核心回归通过；它是合理的通用配置，尚不能认定为每条线路的性能最优。优先处理内核安全维护、已撤回核心和验证基线，再按实际线路做性能对比。
 
@@ -10,7 +10,7 @@
 
 通过遍历 /proc/*/exe 确认实际 Xray 进程与状态中的归档路径相符，执行对应二进制 version 核对版本。systemd 主进程是 Bash 管理器，不能把 MainPID 当作 Xray 本体。
 
-| 项目 | 节点B node_b | 节点A node_a | 节点C node_c |
+| 项目 | 节点B node-b | 节点A node-a | 节点C node-c |
 |---|---|---|---|
 | 服务 | active | active | active |
 | 实际核心 | 26.10.29 / 0afec66 | 26.10.29 / 0afec66 | 26.10.31 / a4a3dff |

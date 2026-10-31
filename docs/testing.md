@@ -8,7 +8,7 @@
 
 ## 平台矩阵
 
-当前源码适配 **Debian 12/13 与 Ubuntu 24.04.3 LTS、amd64**；0.2.8 在节点C Debian 12.12 完成真实安装、服务重启和独立Windows公网请求，见[本次验收](archive/vps-node_c-0.2.8-20261101.md)；整机恢复和两机链式未测。0.2.5 最终公开候选包已按 节点A Debian 13.3 入口 → 节点B Debian 13.7 出口通过双机生命周期测试，见[当前实机记录](archive/vps-lifecycle-0.2.5-2026-10-01.md)及[剩余发布条件](archive/release-candidate-0.2.5.md)。Ubuntu 22.04 的记录仅作历史参考。
+当前源码适配 **Debian 12/13 与 Ubuntu 24.04.3 LTS、amd64**；0.2.8 在节点C Debian 12.12 完成真实安装、服务重启和独立Windows公网请求，见[本次验收](archive/vps-node-c-0.2.8-20261101.md)；整机恢复和两机链式未测。0.2.5 最终公开候选包已按 节点A Debian 13.3 入口 → 节点B Debian 13.7 出口通过双机生命周期测试，见[当前实机记录](archive/vps-lifecycle-0.2.5-2026-10-01.md)及[剩余发布条件](archive/release-candidate-0.2.5.md)。Ubuntu 22.04 的记录仅作历史参考。
 
 当前交付为 [0.2.6 RC](archive/release-candidate-0.2.6.md)，只增加清晰的管理脚本版本入口并整理文档。用户已接手客户端与日常使用验收，本轮不追加 VPS 故障或压力测试；版本命令、本地源码／文档、发行包及现有 CI 检查与实机证据分别记录。
 

@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y jq shellcheck
       - name: Source validation and exact-commit packaging
@@ -36,5 +37,5 @@ jobs:
         run: |
           printf 'Source release %s\n\nBootstrap SHA256:\n```\n' "$RELEASE_TAG" > /tmp/release-notes.md
           cat artifacts/install.sh.sha256 >> /tmp/release-notes.md
-          printf '```\nSee docs/release-candidate-0.2.10.md for verification boundaries.\n' >> /tmp/release-notes.md
-          gh release create "$RELEASE_TAG" artifacts/* --verify-tag --draft --prerelease --title "$RELEASE_TAG RC" --notes-file /tmp/release-notes.md
+          printf '```\nSee CHANGELOG.md and docs/releases/1.1.0.md for release details and verification boundaries.\n' >> /tmp/release-notes.md
+          gh release create "$RELEASE_TAG" artifacts/* --verify-tag --draft --title "$RELEASE_TAG" --notes-file /tmp/release-notes.md

@@ -2,7 +2,7 @@
 # Standalone HTTPS bootstrap and offline source entrypoint. No Git dependency.
 set -uo pipefail
 umask 077
-SFXH_SOURCE_VERSION=0.2.10
+SFXH_SOURCE_VERSION=1.1.0
 SFXH_SOURCE_COMMIT=''
 SFXH_SOURCE_SHA256=''
 SFXH_BOOT_ACTION=install
@@ -21,7 +21,7 @@ sf_boot_fetch() {
     curl "${headers[@]}" --fail --show-error --silent --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 --retry 2 "$1" -o "$2" <<< "Authorization: Bearer $token"
 }
 sf_boot_release() {
-    local work=$1 page count version name digest url commit
+    local work=$1 version name digest url commit
     command -v curl >/dev/null || { printf '正式发行入口需要 curl。\n' >&2; return 2; }
     if ! command -v jq >/dev/null; then
         printf '刷新 APT 索引并安装 jq（不执行整机升级）。\n' >&2
@@ -38,22 +38,11 @@ sf_boot_release() {
             printf '无法安装 jq，请检查 APT 锁、软件源或权限后重试。\n' >&2; return 1;
         }
     fi
-    if [[ -n $SFXH_SCRIPT_VERSION ]]; then
-        [[ $SFXH_SCRIPT_VERSION =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]] || return 2
-        sf_boot_fetch "https://api.github.com/repos/sprill-gt/SF-Xray-Hop/releases/tags/v$SFXH_SCRIPT_VERSION" "$work/release.json" || return
-    else
-        [[ $SFXH_SCRIPT_PRE == 0 ]] || { printf '测试脚本需要明确 --script-version。\n' >&2; return 2; }
-        : > "$work/releases.jsonl"
-        for ((page=1;page<=100;page++)); do
-            sf_boot_fetch "https://api.github.com/repos/sprill-gt/SF-Xray-Hop/releases?per_page=100&page=$page" "$work/page.json" || return
-            jq -e 'type=="array"' "$work/page.json" >/dev/null || return
-            count=$(jq length "$work/page.json"); jq -c '.[]' "$work/page.json" >> "$work/releases.jsonl" || return
-            ((count==100)) || break
-        done
-        ((page<=100)) || return 1
-        jq -s '[.[]|select(.draft==false and .prerelease==false and (.tag_name|test("^v[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$")))]|
-          sort_by(.tag_name|ltrimstr("v")|split(".")|map(tonumber))|last' "$work/releases.jsonl" > "$work/release.json" || return
-    fi
+    # Online fixed-version entrypoints resolve only their own published release.
+    # Resolve here so offline source and explicit commit pins keep their behavior.
+    SFXH_SCRIPT_VERSION=${SFXH_SCRIPT_VERSION:-$SFXH_SOURCE_VERSION}
+    [[ $SFXH_SCRIPT_VERSION =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]] || return 2
+    sf_boot_fetch "https://api.github.com/repos/sprill-gt/SF-Xray-Hop/releases/tags/v$SFXH_SCRIPT_VERSION" "$work/release.json" || return
     jq -e --argjson pre "$SFXH_SCRIPT_PRE" '.draft==false and (.published_at|type)=="string" and
       (.prerelease==false or ($pre==1 and .prerelease==true)) and (.tag_name|test("^v[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$"))' "$work/release.json" >/dev/null || {
         printf '尚无符合要求的项目正式发行版；不会自动改装 main 或实验版本。\n' >&2; return 1;
@@ -160,7 +149,7 @@ sf_boot_download() (
 sf_boot_main() {
     local root='' source_path=${BASH_SOURCE[0]:-}
     if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-        printf 'SF-Xray-Hop 一键安装\n默认安装项目最新正式 Release；无正式版时明确停止。\n当前 RC：--rc\n测试发行：--script-version 版本 --allow-pre-script\n固定源码：--source-commit 完整SHA --source-sha256 压缩包摘要\n--upgrade-manager：只升级管理脚本；安装默认0-RTT。\n'
+        printf 'SF-Xray-Hop 一键安装\n默认安装与当前引导脚本对应的正式 Release；无匹配正式版时明确停止。\n兼容 RC 入口：--rc\n测试发行：--script-version 版本 --allow-pre-script\n固定源码：--source-commit 完整SHA --source-sha256 压缩包摘要\n--upgrade-manager：只升级管理脚本；安装默认0-RTT。\n'
         return 0
     fi
     local -a args=()

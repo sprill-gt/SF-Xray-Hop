@@ -70,7 +70,7 @@ sf_setup() {
         return $?
     fi
     local state
-    sf_msg 'SF-Xray-Hop 一键安装（暂时性实验产物）'
+    sf_msg 'SF-Xray-Hop 一键安装'
     sf_msg '默认：单机直连 / TCP 443 / 0-RTT / archive.archlinux.org / Xray 正式版与 Pre 中的最新版本。'
     sf_install || return
     sf_tty || return 0
@@ -308,7 +308,7 @@ sf_menu() {
 }
 sf_help() {
     cat <<'HELP'
-SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
+SF-Xray-Hop / sfxh — 一键直连、按需链式
   无参数                        中文数字菜单
   version                       查看当前脚本版本，无需 sudo／联网
   --version                     仅输出脚本版本号，供自动化读取

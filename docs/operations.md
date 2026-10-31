@@ -82,7 +82,7 @@ TCP 连接耗时、ICMP RTT／丢包、HTTPS 成功率分开命名。ICMP 全部
 
 默认跟随最新（含 Pre），可在菜单 6 改为仅正式版；此设置独立于当前核心来源。Xray 26.10.29 因[官方撤回](https://github.com/XTLS/Xray-core/releases/tag/v26.10.31)已进入拒绝清单。只提示现有安装更新，不自动换核。
 
-旧版 0.2.9 的 self update 本身会拒绝不同 service 单元，首次迁移应在维护者发布 0.2.10 后使用 README 固定入口，追加 `--upgrade-manager`（本地源码为 `sudo bash install.sh --upgrade-manager`）。0.2.10 的升级事务仅识别已知原始单元摘要；拒绝覆盖自定义 unit。迁移备份旧单元，原子安装新单元并执行 daemon-reload；不重启核心，加固在下次用户明确重启/换核时生效。异常及中断恢复同时恢复旧单元和脚本指针。跨回旧管理脚本仍须满足其单元兼容条件。
+旧版 0.2.9 的 self update 本身会拒绝不同 service 单元，首次迁移使用 1.1.0 正式版 README 固定入口，追加 `--upgrade-manager`（本地源码为 `sudo bash install.sh --upgrade-manager`）。0.2.10 的升级事务仅识别已知原始单元摘要；拒绝覆盖自定义 unit。迁移备份旧单元，原子安装新单元并执行 daemon-reload；不重启核心，加固在下次用户明确重启/换核时生效。异常及中断恢复同时恢复旧单元和脚本指针。跨回旧管理脚本仍须满足其单元兼容条件。
 
 `model.jq` 修改改变 policySha256，下一次检查/换核会重新执行安全门禁。服务单元静态验证与离线评分不能替代真实 systemd 沙箱验收。
 
@@ -90,12 +90,12 @@ TCP 连接耗时、ICMP RTT／丢包、HTTPS 成功率分开命名。ICMP 全部
 
 BBR 默认不启用。可选择菜单 5 → 3，或 `sfxh tune bbr on|off|status`。参考 [233boy 的 BBR 实现](https://github.com/233boy/v2ray/blob/707ecf7601ff49f91c2d12dd22b98e8f89588d1c/src/bbr.sh)的内核版本判断，但独立实现模块可用性检查、文件所有权和恢复；不会编辑整个 `/etc/sysctl.conf`。
 
-本项目只接管 `/etc/sysctl.d/90-sf-xray-hop.conf`、`/etc/modules-load.d/90-sf-xray-hop.conf` 及 ownership.json 中的 BBR 原值/摘要。重复开启、已有同名文件、外部编辑与系统值漂移都会拒绝覆盖。off 及卸载恢复原来的默认拥塞控制/队列，保留可能被其他进程使用的已加载模块；不修改已有接口 qdisc，不中断既有连接。若恢复因权限失败，保留记录供重试。内核运行时适配尚需真实 Linux 验证。
+本项目只接管 `/etc/sysctl.d/90-sf-xray-hop.conf`、`/etc/modules-load.d/90-sf-xray-hop.conf` 及 ownership.json 中的 BBR 原值/摘要。重复开启、已有同名文件、外部编辑与系统值漂移都会拒绝覆盖。off 及卸载恢复原来的默认拥塞控制/队列，保留可能被其他进程使用的已加载模块；不修改已有接口 qdisc，不中断既有连接。若恢复因权限失败，保留记录供重试。节点C已完成实际 sysctl/文件接管与恢复；模块未加载、其他虚拟化及整机重启场景仍需验证。
 
 ## 发行证明与标签保护
 
-维护者发布 v* 标签后，release 工作流校验版本、测试源码、从干净 HEAD 打包、生成 manifest.json 与构建证明，再建立待维护者发布的草稿 RC；不会代替维护者发布 tag。引导脚本 SHA256 附在草稿说明和 install.sh.sha256 中。
+维护者发布 v* 标签后，release 工作流校验版本、测试源码、从干净 HEAD 打包、生成 manifest.json 与构建证明，再建立待维护者发布的正式版草稿；不会代替维护者发布 tag。引导脚本 SHA256 附在草稿说明和 install.sh.sha256 中。
 
-可手工核对：`gh attestation verify SF-Xray-Hop-0.2.10.tar.gz --repo sprill-gt/SF-Xray-Hop`。安装器目前仍校验清单及摘要，尚不强制验证证明。
+可手工核对：`gh attestation verify SF-Xray-Hop-1.1.0.tar.gz --repo sprill-gt/SF-Xray-Hop`。安装器目前仍校验清单及摘要，尚不强制验证证明。
 
 2026-11-01 已在 GitHub 启用 [Immutable release tags](https://github.com/sprill-gt/SF-Xray-Hop/rules/26285191)：匹配 refs/tags/v*，禁止更新和删除，无绕过角色。创建新标签不受这两条规则限制。未创建 0.2.10 标签或发行版。

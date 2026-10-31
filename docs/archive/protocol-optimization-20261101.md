@@ -6,10 +6,10 @@
 
 | 对象 | 变更 | 最终验证 |
 |---|---|---|
-| 节点B node_b | 26.10.29 → 官方 26.10.31，pinned | 实际运行 a4a3dff，服务 active，doctor 通过 |
-| 节点A node_a | 26.10.29 → 官方 26.10.31，pinned | 实际运行 a4a3dff；Direct 走本机，Relay 仍走节点B；doctor 通过 |
-| 节点C node_c | 官方安全内核 6.1.158-1 → 6.1.190-1，并完成整机重启 | 运行 6.1.0-54-amd64，SSH/Xray 自动恢复，实际核心仍为 26.10.31，doctor 通过 |
-| 节点A node_a | cubic → BBR，持久化模块与 sysctl | 当前 bbr；既有默认 qdisc fq_codel 保留；外部 HTTPS/出口/UDP 验证通过 |
+| 节点B node-b | 26.10.29 → 官方 26.10.31，pinned | 实际运行 a4a3dff，服务 active，doctor 通过 |
+| 节点A node-a | 26.10.29 → 官方 26.10.31，pinned | 实际运行 a4a3dff；Direct 走本机，Relay 仍走节点B；doctor 通过 |
+| 节点C node-c | 官方安全内核 6.1.158-1 → 6.1.190-1，并完成整机重启 | 运行 6.1.0-54-amd64，SSH/Xray 自动恢复，实际核心仍为 26.10.31，doctor 通过 |
+| 节点A node-a | cubic → BBR，持久化模块与 sysctl | 当前 bbr；既有默认 qdisc fq_codel 保留；外部 HTTPS/出口/UDP 验证通过 |
 
 核心升级使用各服务器已有的管理器事务流程，依次先升级节点B，再升级 节点A；没有为换核替换管理脚本。候选摘要、私网防护、旧客户端与下游协议预检、正式链路复测均未跳过。
 

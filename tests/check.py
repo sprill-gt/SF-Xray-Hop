@@ -13,7 +13,7 @@ readme = (ROOT / 'README.md').read_text(encoding='utf-8')
 if 'bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v' not in readme:
     failures.append('README pinned Bash install command is missing')
 version = re.search(r'^SFXH_VERSION=([0-9.]+)$', (ROOT/'lib/common.sh').read_text(), re.M)[1]
-if f'SFXH_SOURCE_VERSION={version}\n' not in (ROOT/'install.sh').read_text() or f'/v{version}/install.sh) --rc' not in readme:
+if f'SFXH_SOURCE_VERSION={version}\n' not in (ROOT/'install.sh').read_text() or f'/v{version}/install.sh)' not in readme:
     failures.append('manager, bootstrap and README release versions disagree')
 shells = list(ROOT.glob("lib/*.sh")) + list(ROOT.glob("tests/*.sh")) + [ROOT / p for p in ("sf-xray-hop", "sfxh", "install.sh")]
 for file in shells:

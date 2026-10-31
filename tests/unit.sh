@@ -87,8 +87,8 @@ pass 'legacy track defaults latest; stable intent preserves protocol bytes; inva
 sf_rtt_values "$work/state.json" 1 "$work/state1.json"
 sf_validate_state "$work/state1.json"
 jq -e --slurpfile old "$work/state.json" '(.encryption.decryption|split(".")[2])=="0s" and (.encryption.encryption|split(".")[2])=="1rtt" and .identities==$old[0].identities and (.encryption.decryption|split(".")[3])==($old[0].encryption.decryption|split(".")[3])' "$work/state1.json" >/dev/null
-sf_render "$work/state1.json" "$work/node_b.json"
-sf_core_test "$binary" "$work/node_b.json" "$work/node_b-test.log"
+sf_render "$work/state1.json" "$work/node-b.json"
+sf_core_test "$binary" "$work/node-b.json" "$work/node-b-test.log"
 sf_rtt_values "$work/state1.json" 0 "$work/state0-again.json"
 diff <(jq -S . "$work/state.json") <(jq -S . "$work/state0-again.json")
 pass 'RTT switch preserves credentials and restores generator ticket setting'
