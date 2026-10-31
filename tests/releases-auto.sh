@@ -38,4 +38,8 @@ if sf_release_metadata auto '' "$TEST_RELEASE_WORK/chosen.json" 2>/dev/null; the
 printf 'PASS API failure stops without cached or channel fallback\n'
 if sf_project_release sprill-gt/SF-Xray-Hop auto '' "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi
 printf 'PASS core automatic policy does not broaden manager release selection\n'
-printf 'TOTAL 8 automatic release-selection checks (HTTP mocked)\n'
+rc=0
+sf_project_release XTLS/Xray-core invalid '' "$TEST_RELEASE_WORK/chosen.json" || rc=$?
+[[ $rc == 2 ]]
+printf 'PASS invalid channel stops before HTTP even when caller handles errors\n'
+printf 'TOTAL 9 automatic release-selection checks (HTTP mocked)\n'
