@@ -1,6 +1,6 @@
 # 协议与源码依据
 
-2026-11-01 补充：已完成[26.10.31 配置审查](protocol-audit-20261101.md)及[生产优化、内核修复和 TCP/UDP 验证](protocol-optimization-20261101.md)。下文保留 26.9.9 初始依据，不把历史基线当作当前部署版本。
+2026-11-01 补充：已完成[26.10.31 配置审查](archive/protocol-audit-20261101.md)及[生产优化、内核修复和 TCP/UDP 验证](archive/protocol-optimization-20261101.md)。下文保留 26.9.9 初始依据，不把历史基线当作当前部署版本。
 
 核对日期：2026-09-28。初始基线：[Xray-core v26.9.9](https://github.com/XTLS/Xray-core/releases/tag/v26.9.9)。源码 commit 前缀 52a412d。下述为源码依据，实际二进制结果另见测试记录。
 
@@ -40,12 +40,12 @@ Encryption 的 native/xorpub/random 与 uTLS 指纹完全不同；界面和字�
 
 26.9.9 的 freedom 默认规则会阻止私网目的地，参见 [freedom 实现](https://github.com/XTLS/Xray-core/blob/v26.9.9/proxy/freedom/freedom.go) 与 [finalRules 配置](https://github.com/XTLS/Xray-core/blob/v26.9.9/infra/conf/freedom.go)。生产模板沿用这个默认行为。本地协议测试只在测试配置放行测试 HTTPS 接收器的精确回环地址和端口，不能把该放行复制到公网模板。
 
-2026-10-01核对：[26.3.27的freedom实现](https://github.com/XTLS/Xray-core/blob/v26.3.27/proxy/freedom/freedom.go)没有同样的默认final-rule路径，配置可启动并不表示安全行为等价。0.2.3在核心应用前增加隔离负向行为检查，26.3.27被拒绝。26.9.9源码包含字面IP、解析结果及实际连接地址检查，另有UDP路径；本版自动门槛实测的是TCP样本，不将它表述为完整UDP、DNS重绑定或未来核心安全审计。详情见[审查修正](audit-0.2.2.md)。
+2026-10-01核对：[26.3.27的freedom实现](https://github.com/XTLS/Xray-core/blob/v26.3.27/proxy/freedom/freedom.go)没有同样的默认final-rule路径，配置可启动并不表示安全行为等价。0.2.3在核心应用前增加隔离负向行为检查，26.3.27被拒绝。26.9.9源码包含字面IP、解析结果及实际连接地址检查，另有UDP路径；本版自动门槛实测的是TCP样本，不将它表述为完整UDP、DNS重绑定或未来核心安全审计。详情见[审查修正](archive/audit-0.2.2.md)。
 
 ## 指定GUI版本的源码核对
 
 2026-10-01按用户提供的版本核对：Windows v2rayN 7.25.2、Android v2rayNG 2.3.8，客户端核心均为26.9.9。两者固定版本的VLESS解析器都读取`encryption`；公共解析器读取XHTTP的`type/path/mode`以及REALITY的`sni/fp/pbk/sid`和`flow`。没有据此改变分享字段或删除Encryption。来源：[v2rayN VLESSFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs)、[BaseFmt](https://github.com/2dust/v2rayN/blob/7.25.2/v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs)、[v2rayNG VlessFmt](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/VlessFmt.kt)、[FmtBase](https://github.com/2dust/v2rayNG/blob/2.3.8/V2rayNG/app/src/main/java/com/v2ray/ang/fmt/FmtBase.kt)。以上为字段级源码核对，实际设备证据见下一段。
 
-2026-10-01 已在真实 v2rayN 7.25.2 导入 Direct／Relay 两条长链接，并核对 13 项连接字段及完整 1610 字符 Encryption 与来源一致；这是实际导入证据。自定义 JSON、GUI 请求及 Android 仍与源码／原生 core 验证分开记录，见[0.2.5 实机记录](vps-lifecycle-0.2.5-2026-10-01.md)。其他版本和客户端不由此推定兼容。
+2026-10-01 已在真实 v2rayN 7.25.2 导入 Direct／Relay 两条长链接，并核对 13 项连接字段及完整 1610 字符 Encryption 与来源一致；这是实际导入证据。自定义 JSON、GUI 请求及 Android 仍与源码／原生 core 验证分开记录，见[0.2.5 实机记录](archive/vps-lifecycle-0.2.5-2026-10-01.md)。其他版本和客户端不由此推定兼容。
 
 R2 核对日期：2026-09-30。参考 [VLESS outbound](https://xtls.github.io/config/outbounds/vless.html) 与 [inbound](https://xtls.github.io/config/inbounds/vless.html)。未知 Encryption 结构停止 RTT 修改；不自行扩展算法或证明其安全性。

@@ -223,12 +223,17 @@ sf_core_select_menu() {
     sf_core_select "$SF_REPLY"
 }
 sf_core_menu() {
+    local state track next
     while :; do
-        sf_ui_line 2 '自动比较正式版与 Pre，选择更高版本。'
-        sf_ask_choice 'Xray 核心' '1. 更新到最新版本' '2. 指定版本号' '3. 恢复上一版本' '4. 选择本地历史版本' '0. 返回' || return
+        state=$(sf_state) || return; track=$(sf_core_track_value "$state") || return
+        sf_ui_line 2 "更新跟随：$(sf_track_label "$track")"
+        sf_ask_choice 'Xray 核心' '1. 更新到最新版本' '2. 指定版本号' '3. 恢复上一版本' '4. 选择本地历史版本' "5. 更新跟随：$(sf_track_label "$track")" '0. 返回' || return
         case "$SF_REPLY" in
             1) sf_core_update ;; 2) sf_core_select_menu ;;
-            3) sf_core_rollback --previous ;; 4) sf_core_rollback ;; 0) return 0 ;;
+            3) sf_core_rollback --previous ;; 4) sf_core_rollback ;;
+            5) if [[ $track == latest ]]; then next=stable; else next=latest; fi
+               if sf_confirm "切换为 $(sf_track_label "$next")？本次不换核、不重启。"; then sf_core_track "$next"; fi ;;
+            0) return 0 ;;
         esac
         sf_action_done "$?"
     done
@@ -249,10 +254,19 @@ sf_share_menu() {
         3) sf_view json direct ;; 4) sf_view json relay ;; 0) return 0 ;;
     esac
 }
+sf_bbr_menu() {
+    sf_bbr_status
+    sf_ask_choice '系统 BBR（可选，默认关闭）' '1. 开启 BBR + fq' '2. 关闭并恢复原值' '0. 返回' || return
+    case "$SF_REPLY" in
+        1) sf_confirm '修改系统 TCP 默认拥塞控制及队列为 BBR + fq？' && sf_tune_bbr on ;;
+        2) sf_confirm '恢复本项目开启 BBR 前的系统默认值？' && sf_tune_bbr off ;;
+        0) return 0 ;;
+    esac
+}
 sf_connection_menu() {
     while :; do
-        sf_ask_choice '连接设置' '1. 修改 SNI' '2. RTT 设置' '0. 返回' || return
-        case "$SF_REPLY" in 1) sf_sni_menu ;; 2) sf_rtt_menu ;; 0) return 0 ;; esac
+        sf_ask_choice '连接设置' '1. 修改 SNI' '2. RTT 设置' '3. 系统 BBR（可选）' '0. 返回' || return
+        case "$SF_REPLY" in 1) sf_sni_menu ;; 2) sf_rtt_menu ;; 3) sf_bbr_menu ;; 0) return 0 ;; esac
         sf_action_done "$?"
     done
 }
@@ -300,7 +314,7 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   --version                     仅输出脚本版本号，供自动化读取
   install [选项]                默认443 / 0-RTT / archive.archlinux.org / 最新核心
                                 --address 地址 --port 端口 --rtt 0|1 --target 域名|auto
-                                --name 名称 --channel auto|pre|stable --version 核心版本
+                                --bbr on|off --name 名称 --core-track latest|stable --channel auto|pre|stable --version 核心版本
   guide                         两端链式连接引导
   view [direct|relay|handoff]    默认直连；relay 仅入口，handoff 仅出口
   view json [direct|relay]       客户端 JSON，默认 direct，HTTP 127.0.0.1:10809
@@ -316,15 +330,17 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   rtt downstream 0|1            仅修改到下游的 RTT 偏好
   target [auto|set 域名]         查看／修改 SNI 与 REALITY 目标
   fingerprint chrome|firefox|safari
-  core check                    检查官方最新核心（正式版 / Pre 取较大版本）
+  core track [latest|stable]    查看／保存更新跟随，旧安装默认 latest（含 Pre）
+  core check                    按更新跟随检查核心，提示撤回版本
   core update [--channel auto|pre|stable|pinned] [--version 版本] [--yes]
-                                默认更新到最新核心（正式版 / Pre 取较大版本），不受上次版本选择影响
+                                默认更新到最新核心（正式版 / Pre 取较大版本），按保存的更新跟随设置选择
   core select 版本号 [--yes]     自主选择版本；最低 26.9.9，也可用 core 版本号
   core rollback [版本号|完整归档ID|--previous] [--offline]
                                 版本号为在线选择；离线仅限已验证本地归档
   core prune                    保留至少5个已验证核心
   self check / update [--version 版本 --allow-pre] [--yes]
   self rollback [--yes]          验证当前状态后回退管理脚本
+  tune bbr [on|off|status]       可选开启 BBR + fq／恢复原值，默认不修改
   logs                          脱敏日志
   uninstall [--yes] [--keep-data] 默认完整删除；交互需输入 UNINSTALL
 HELP
@@ -363,11 +379,12 @@ sf_main() {
         target) if (($#==0)); then sf_set_target; elif [[ $# == 1 && $1 == auto ]]; then sf_set_target auto; elif [[ $# == 2 && $1 == set ]]; then sf_set_target "$2"; else return 2; fi ;;
         core) sub=${1:-}; (($#==0)) || shift
               if [[ $sub == check || $sub == prune ]]; then [[ $# == 0 ]] || return 2; fi
-              case "$sub" in check) [[ $# == 0 ]] && sf_core_check ;; update) sf_core_update "$@" ;; select) sf_core_select "$@" ;;
+              case "$sub" in track) sf_core_track "$@" ;; check) [[ $# == 0 ]] && sf_core_check ;; update) sf_core_update "$@" ;; select) sf_core_select "$@" ;;
                   rollback) sf_core_rollback "$@" ;; prune) [[ $# == 0 ]] && sf_core_prune ;;
                   [0-9]*|v[0-9]*) sf_core_select "$sub" "$@" ;; *) return 2 ;; esac ;;
         self) sub=${1:-}; (($#==0)) || shift
               case "$sub" in check) sf_self_check "$@" ;; update) sf_self_update "$@" ;; rollback) sf_self_rollback "$@" ;; *) return 2 ;; esac ;;
+        tune) [[ ${1:-} == bbr && $# -le 2 ]] || return 2; sf_tune_bbr "${2:-status}" ;;
         logs) sf_logs ;; uninstall) sf_uninstall "$@" ;; *) sf_usage_error '未知命令，请运行 sfxh help。' ;;
     esac
 }

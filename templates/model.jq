@@ -3,6 +3,7 @@ def clean: type == "string" and (test("[\\x00-\\x1f\\x7f]")|not);
 def display_name: type=="string" and length>0 and length<=80 and utf8bytelength<=240 and
   (test("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]")|not);
 def node_role: if .nextHop!=null then "entry" else (.presentation.role // "standalone") end;
+def core_track: .core.track // "latest";
 def downstream_name: .presentation.downstreamName // "下游节点";
 # An explicit predicate, shared by import and persistent-state validation.
 def valid_profile:
@@ -41,6 +42,7 @@ def valid_state:
   (.core.id|test("^v[0-9]+\\.[0-9]+\\.[0-9]+-[a-f0-9]{16}$")) and
   (.core.version|test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
   (.core.channel=="pre" or .core.channel=="stable" or .core.channel=="pinned") and
+  (.core.track==null or .core.track=="latest" or .core.track=="stable") and
   (public_profile($s;"direct")|valid_profile) and (public_profile($s;"relay")|valid_profile) and
   (.nextHop==null or (.nextHop|valid_profile));
 def outbound($p; $tag):
@@ -64,4 +66,6 @@ def client_config($p; $port):
 def exported_client_config($p):
   client_config($p;10809) |
   .inbounds += [{tag:"local-socks",listen:"127.0.0.1",port:10808,protocol:"socks",settings:{auth:"noauth",udp:true}}] |
-  .routing.rules[0].inboundTag += ["local-socks"];
+  .routing.rules[0].inboundTag += ["local-socks"] |
+  .outbounds += [{tag:"block",protocol:"blackhole"}] |
+  .routing.rules = [{type:"field",network:"udp",port:"443",outboundTag:"block"}] + .routing.rules;

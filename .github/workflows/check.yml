@@ -1,31 +1,34 @@
 name: Source and isolated regression
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  debian12-bootstrap:
+  debian-bootstrap:
     runs-on: ubuntu-24.04
-    container: debian:12
+    strategy:
+      fail-fast: false
+      matrix:
+        debian: ['12', '13']
+    container: debian:${{ matrix.debian }}
     timeout-minutes: 10
     steps:
-      - name: Debian 12 fixture dependencies
+      - name: Bootstrap fixture dependencies
         run: apt-get -o APT::Update::Error-Mode=any update && apt-get install -y --no-install-recommends bash ca-certificates curl git python3 jq shellcheck
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Bookworm bootstrap and release resolver (no systemd or VPS acceptance)
+      - name: Static and bootstrap fixtures (no systemd acceptance)
         shell: bash
         run: |
-          python3 tests/check.py
-          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
-          python3 tests/bootstrap-command.py
-          bash tests/bootstrap-dependencies.sh
-          bash tests/argon-review.sh
-          bash tests/releases-auto.sh
-          bash tests/asset-resume.sh
+          bash tests/run-static.sh
           bash tests/core-r2.sh
+          bash tests/bbr.sh
           python3 tests/bootstrap.py
   regression:
     runs-on: ubuntu-24.04
@@ -51,18 +54,15 @@ jobs:
           printf '%s  %s\n' '${{ matrix.sha256 }}' '.cache/ci-core/core.zip' | sha256sum -c -
           unzip -p .cache/ci-core/core.zip xray > .cache/ci-core/xray
           chmod 755 .cache/ci-core/xray
-      - name: Source, documentation and bootstrap command
+      - name: Static, documentation and bootstrap checks
+        run: bash tests/run-static.sh
+      - name: Unit verification and offline hardening comparison
         run: |
-          python3 tests/check.py
-          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
-          python3 tests/bootstrap-command.py
-          bash tests/bootstrap-dependencies.sh
-          bash tests/argon-review.sh
-          bash tests/releases-auto.sh
-          bash tests/asset-resume.sh
+          sudo install -D -m 755 sf-xray-hop /usr/local/lib/sf-xray-hop/sf-xray-hop
+          bash tests/systemd-unit.sh
       - name: Isolated logic and filesystem regression (services and network mocked)
         run: |
-          for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version; do
+          for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version bbr; do
             sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash "tests/$test.sh"
           done
           sudo python3 tests/bootstrap.py

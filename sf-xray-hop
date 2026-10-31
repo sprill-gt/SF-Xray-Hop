@@ -8,7 +8,7 @@ if [[ -L ${BASH_SOURCE[0]} ]]; then
     SFXH_CODE=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 fi
 if [[ ${SFXH_TEST_MODE:-0} != 1 ]]; then export PATH=/usr/sbin:/usr/bin:/sbin:/bin; fi
-for module in common platform model product links core reality health transaction manager self install operations benchmark ui; do
+for module in common platform model product links core reality health transaction manager self install operations benchmark tune ui; do
     # shellcheck source=/dev/null
     source "$SFXH_CODE/lib/$module.sh" || exit 1
 done

@@ -57,15 +57,15 @@ sfxh logs
 sfxh uninstall [--yes] [--keep-data]
 ```
 
-安装默认443、0-RTT、Chrome、XHTTP auto、archive.archlinux.org、pre；名称为内部稳定 ID 派生的 `node-短ID`。只在端口冲突、地址未知或验证失败等异常时提问。重复安装不重设现有频道。顶层 `--version` 显示脚本版本，install/core 的 `--version` 指核心；安装器 `--script-version` 指项目发行版，两者独立。
+安装默认443、0-RTT、Chrome、XHTTP auto、archive.archlinux.org、最新（含 Pre）；名称为内部稳定 ID 派生的 `node-短ID`。只在端口冲突、地址未知或验证失败等异常时提问。重复安装不重设现有频道。顶层 `--version` 显示脚本版本，install/core 的 `--version` 指核心；安装器 `--script-version` 指项目发行版，两者独立。
 
-主菜单6进入的核心子菜单1和 `core update` 总是查询并应用官方最新核心（正式版 / Pre 取较大版本），即使之前自主选择了版本、恢复了历史核心或显式使用过 stable。`core check` 同样查看最新核心（正式版 / Pre 取较大版本），但不切换版本。核心子菜单2直接输入版本号，对应 `core select 26.9.9`；可写 `v26.9.9`，也兼容 `core update --version 26.9.9` 和在线 `core rollback 26.9.9`。指定版本会记为 pinned，普通启动或重复安装保持该选择；下一次默认更新重新比较正式版与 Pre。这里的自动拉取发生于安装／更新命令，没有后台定时换核。
+主菜单6的核心子菜单1和 `core update` 按保存的 track 选择版本；旧状态和新装默认 latest（正式版与 Pre 按数字比较），子菜单5可切换 stable。`core check` 按同一设置查看并提供最新正式版对照，不切换核心。子菜单2或 `core select 版本号` 固定版本，后续更新解除固定并按 track 选择。这里的自动拉取只发生于安装／更新命令，没有后台定时换核。
 
 安装、在线选择和本地历史恢复的最低核心均为 **26.9.9**，低于下限时 `--yes` 也不能放行。在线选择不要求本地曾安装过该版本，但官方必须存在对应 Release，且通过摘要、能力、安全及连接检查；未知版本或不兼容版本不会切换。核心子菜单3恢复上一可用核心；核心子菜单4选择本地已验证历史；显式选择正式版继续使用 `core update --channel stable`。`core rollback --offline` 仅接受本地历史选择或完整归档 ID。
 
 `view` 和 `view json` 默认 Direct。`relay` 只面向入口设备，`handoff` 只在明确设为出口后提供。JSON 的本地 HTTP 端口为127.0.0.1:10809，不含服务端私钥。提示写 stderr，导出写 stdout。名字是备注而非凭据；修改后旧客户端的备注不会自动同步。
 
-JSON 是完整 Xray 客户端配置。GUI 的“自定义配置”可能直接采用其中的监听端口；例如现有 v2rayN 使用 10808 时，不能假定导入 10809 的 JSON 后应用代理端口自动匹配。测试时先核对本地端口和代理类型；导出的是 HTTP 入站，不应填入要求后端 SOCKS 的选项。普通使用优先导入已验证的长 URI，自定义 JSON 的 GUI 验收范围见[客户端记录](vps-lifecycle-0.2.5-2026-10-01.md)。
+JSON 是完整 Xray 客户端配置。GUI 的“自定义配置”可能直接采用其中的监听端口；例如现有 v2rayN 使用 10808 时，不能假定导入 10809 的 JSON 后应用代理端口自动匹配。测试时先核对本地端口和代理类型；本版同时提供 HTTP 10809 和 SOCKS5 10808（UDP 开启、UDP/443 本地阻断），需核对 GUI 端口是否冲突。普通使用优先导入已验证的长 URI，自定义 JSON 的 GUI 验收范围见[客户端记录](archive/vps-lifecycle-0.2.5-2026-10-01.md)。
 
 ```bash
 sudo sh -c 'umask 077; sfxh view json direct > /root/direct-client.json'
@@ -79,3 +79,17 @@ sudo sfxh chain set < /root/exit-handoff.uri
 完整卸载默认删除私密数据，交互输入 `UNINSTALL`；空回车、EOF、其他文字不删除。`--keep-data` 是显式保留选项；旧 `--purge` 作为完整卸载兼容别名。
 
 客户端 JSON 导出包含回环 HTTP `10809` 与 SOCKS5 `10808`（支持 UDP）；内部健康检测不占用这两个固定端口。GitHub API 可通过环境变量 `SFXH_GITHUB_TOKEN`（优先）或 `GITHUB_TOKEN` 认证；令牌不用于发行资产下载。
+
+## 核心更新跟随与撤回版本
+
+`sfxh core track` 查看更新跟随；`sfxh core track latest` 保存最新（含 Pre），`sfxh core track stable` 保存仅正式版。只修改元数据，不换核、不重启服务；下次 `sfxh core update` 才按新设置选择。`core.channel` 仍记录当前版本来源；缺少 `core.track` 一律按 latest。
+
+`sfxh install --core-track stable` 可在新装时选择仅正式版。旧的 `--channel auto|pre|stable` 继续兼容；更新时显式 `--channel` 只影响本次操作，不改保存的 track。`--version` 固定当前核心，后续默认更新仍按 track 选择并解除固定。菜单 6 的第 5 项可切换更新跟随。
+
+撤回版本清单位于 `data/core-denylist.json`；26.10.29 已被上游撤回。自动选择跳过撤回版本，指定版本和恢复也拒绝选择它；doctor/core check 对正在运行的撤回版本只警告，不自动换核。
+
+## 可选 BBR
+
+`sfxh tune bbr status` 查看；`sfxh tune bbr on` 显式开启 BBR + fq；`sfxh tune bbr off` 恢复原值。菜单 5 → 3 提供同样的选项。新装可选 `--bbr on`，默认 off，已有安装重复运行 install 不会接管 BBR。
+
+仅使用当前内核提供的 BBR；不下载第三方脚本、不替换内核、不重启。内核版本至少 4.9，模块不可用、缺少权限或共享内核容器会停止。开启前记录两个 sysctl 原值，使用本项目独立的 sysctl.d 和 modules-load.d 文件；卸载先恢复。外部编辑或其他工具修改了已接管值时停止恢复并保留记录，需人工协调后重试。

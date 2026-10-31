@@ -3,6 +3,7 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 # shellcheck disable=SC1090
+SFXH_CODE=$root
 source "$root/lib/common.sh"
 # shellcheck disable=SC1090
 source "$root/lib/core.sh"
@@ -72,6 +73,14 @@ sf_project_release XTLS/Xray-core invalid '' "$TEST_RELEASE_WORK/chosen.json" ||
 [[ $rc == 2 ]]
 printf 'PASS manager policy stays separate and invalid channels stop before HTTP\n'
 ! grep -q '/releases?' "$TEST_RELEASE_WORK/requests"
+TEST_HTTP_FAILURE=0
+choose '[{"tag_name":"v26.10.29","prerelease":true},{"tag_name":"v26.10.28","prerelease":true}]' v26.10.28 true
+printf 'PASS withdrawn latest is skipped for next eligible candidate\n'
+printf '[{"name":"v26.10.29"}]' > "$TEST_RELEASE_WORK/page.json"
+if sf_release_metadata auto '' "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi
+if sf_release_metadata stable '' "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi
+if sf_release_metadata pinned 26.10.29 "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi
+printf 'PASS all withdrawn candidates fail and exact withdrawn version is refused\n'
 # Exercise actual timeout/compression/status handling without a network call.
 # shellcheck disable=SC1090
 source "$root/lib/core.sh"
@@ -95,4 +104,4 @@ TEST_CURL_RC=28
 rc=0; sf_core_api https://api.github.com/repos/XTLS/Xray-core/tags "$TEST_RELEASE_WORK/api.json" 2>/dev/null || rc=$?
 [[ $rc == 1 ]]
 printf 'PASS metadata requests use compression, bounded size/time and distinguish 404 from errors\n'
-printf 'TOTAL 12 lightweight release-selection/transport checks (HTTP mocked)\n'
+printf 'TOTAL lightweight release-selection/transport checks (HTTP mocked)\n'

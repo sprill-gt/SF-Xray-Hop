@@ -70,4 +70,15 @@ sf_install > "$work/stable-install.out" 2>&1
 [[ $(tail -n 1 "$work/release-calls") == auto ]]
 jq -e '.core.channel=="stable" and .core.pinnedVersion==null' "$work/installed.json" >/dev/null
 printf 'PASS automatic install records stable when stable wins the comparison\n'
-printf 'TOTAL 6 install control-flow checks (deployment and network mocked)\n'
+rm "$work/installed.json"
+sf_install --core-track stable > "$work/stable-track.out" 2>&1
+[[ $(tail -n 1 "$work/release-calls") == stable ]]
+jq -e '.core.track=="stable"' "$work/installed.json" >/dev/null
+rm "$work/installed.json"
+sf_install --channel stable > "$work/legacy-stable.out" 2>&1
+jq -e '.core.track=="stable"' "$work/installed.json" >/dev/null
+rm "$work/installed.json"
+sf_install --version 26.9.9 > "$work/pinned-track.out" 2>&1
+jq -e '.core.track=="latest" and .core.channel=="pinned"' "$work/installed.json" >/dev/null
+printf 'PASS explicit track, legacy stable option and pinned defaults are persisted on install\n'
+printf 'TOTAL install control-flow checks (deployment and network mocked)\n'

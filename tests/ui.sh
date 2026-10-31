@@ -234,4 +234,19 @@ pass 'separate chain entries never silently switch from management to setup'
     grep -q $'\033\[36m' "$TEST_WORK/color.txt"
 )
 pass 'color highlights title and choices without turning section labels into actions'
+(
+    sf_state() { printf '%s/state.json\n' "$TEST_WORK"; }
+    sf_core_track() { printf '%s\n' "$1" > "$TEST_WORK/new-track"; }
+    sf_confirm() { return 0; }
+    sf_action_done() { :; }
+    sf_ask_choice() {
+        printf '%s\n' "$@" >> "$TEST_WORK/track-menu"
+        if [[ ! -f $TEST_WORK/menu-step ]]; then touch "$TEST_WORK/menu-step"; SF_REPLY=5; else SF_REPLY=0; fi
+    }
+    sf_core_menu > "$TEST_WORK/track-title" 2>&1
+    [[ $(cat "$TEST_WORK/new-track") == stable ]]
+    grep -q '5. 更新跟随：最新（含 Pre）' "$TEST_WORK/track-menu"
+    grep -q '更新跟随：最新（含 Pre）' "$TEST_WORK/track-title"
+)
+pass 'core menu displays saved intent and confirms switching without invoking update'
 printf 'TOTAL %d UI control-flow checks (business actions mocked)\n' "$count"

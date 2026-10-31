@@ -70,8 +70,19 @@ pass 'complete client JSON validates and contains no server private material'
 sf_export_client_config "$work/profile.json" "$work/exported.json"
 sf_core_test "$binary" "$work/exported.json" "$work/exported-test.log"
 jq -e '.inbounds|length==2 and all(.[];.listen=="127.0.0.1") and any(.[];.protocol=="socks" and .port==10808 and .settings.udp==true)' "$work/exported.json" >/dev/null
-jq -e '.routing.rules[0].inboundTag|sort==["local-http","local-socks"]' "$work/exported.json" >/dev/null
+jq -e '.routing.rules[1].inboundTag|sort==["local-http","local-socks"]' "$work/exported.json" >/dev/null
 pass 'exported loopback HTTP and SOCKS UDP config validates'
+jq 'del(.core.track)' "$work/state.json" > "$work/legacy-track.json"
+sf_validate_state "$work/legacy-track.json"
+[[ $(sf_core_track_value "$work/legacy-track.json") == latest ]]
+jq '.core.track="stable"' "$work/legacy-track.json" > "$work/stable-track.json"
+sf_validate_state "$work/stable-track.json"
+sf_render "$work/stable-track.json" "$work/stable-server.json"
+cmp "$work/stable-server.json" "$work/server.json"
+jq '.core.track="invalid"' "$work/legacy-track.json" > "$work/bad-track.json"
+reject sf_validate_state "$work/bad-track.json"
+pass 'legacy track defaults latest; stable intent preserves protocol bytes; invalid track rejected'
+
 
 sf_rtt_values "$work/state.json" 1 "$work/state1.json"
 sf_validate_state "$work/state1.json"
