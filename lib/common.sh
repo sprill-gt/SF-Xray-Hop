@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SFXH_VERSION=0.2.8
+SFXH_VERSION=0.2.9
 SFXH_MIN_CORE=26.9.9
 sf_paths() {
     local prefix=''
@@ -15,6 +15,12 @@ sf_paths() {
     export SFXH_ETC SFXH_VAR SFXH_LOG SFXH_RUN
 }
 sf_msg() { printf '%s\n' "$*" >&2; }
+sf_color_enabled() { [[ -t 2 && ${TERM:-dumb} != dumb && ! ${NO_COLOR+x} ]]; }
+sf_paint() {
+    if sf_color_enabled; then printf '\033[%sm%s\033[0m' "$1" "$2"; else printf '%s' "$2"; fi
+}
+sf_ui_line() { sf_paint "$1" "$2" >&2; printf '\n' >&2; }
+sf_ui_row() { sf_paint 2 "  $1  " >&2; printf '%s\n' "$2" >&2; }
 sf_fail() { sf_msg "错误：$*"; return 1; }
 sf_usage_error() { sf_msg "输入错误：$*"; return 2; }
 sf_tty() { [[ -t 0 && -t 2 ]]; }

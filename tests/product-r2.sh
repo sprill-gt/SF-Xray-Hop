@@ -86,12 +86,11 @@ sf_uninstall < /dev/null > "$work/eof" 2>&1 && exit 1 || [[ $? == 130 ]]
 [[ -f $work/state.json ]]; pass 'blank and EOF never authorize destructive uninstall'
 sf_status() { :; }; sf_installed() { return 0; }; sf_pause() { :; }
 sf_menu <<< '' > "$work/menu" 2>&1
-grep -q '1. 启动 / 管理链式代理引导' "$work/menu"; grep -q '8. 更新 SF-Xray-Hop 脚本' "$work/menu"
-grep -q '^9\. Xray 更新到最新核心（正式版 / Pre 取较大版本）$' "$work/menu"
-grep -q '^10\. Xray 自主选择版本' "$work/menu"
-grep -q '^11\. Xray 恢复上一可用核心$' "$work/menu"
-[[ $(grep -E '^[0-9]+\. ' "$work/menu" | tail -n 2 | head -n 1) == '12. 完整卸载' ]]
-[[ $(grep -cE '^[0-9]+\. ' "$work/menu") == 13 ]]
+grep -q '1. 配置链式' "$work/menu"; grep -q '2. 管理链式' "$work/menu"
+grep -q '6. Xray 核心' "$work/menu"
+grep -q '8. 更新管理脚本' "$work/menu"
+[[ $(grep -E '^[[:space:]]*[0-9]+\. ' "$work/menu" | tail -n 2 | head -n 1) == '  9. 卸载' ]]
+[[ $(grep -cE '^[[:space:]]*[0-9]+\. ' "$work/menu") == 10 ]]
 ! grep -q $'\033' "$work/menu"
-pass 'main menu exposes core shortcuts, keeps uninstall last and Enter exits without credentials or ANSI'
+pass 'main menu groups maintenance, keeps uninstall last and Enter exits without credentials or ANSI'
 printf 'TOTAL %d R2 product checks (network and services are fixtures)\n' "$count"

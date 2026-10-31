@@ -178,34 +178,36 @@ sf_core_rollback() (
     jq --arg id "$id" --arg version "$version" '.core={id:$id,version:$version,channel:"pinned",pinnedVersion:$version}' "$SF_EDIT_STATE" > "$work/state.json" && sf_tx_apply "$work/state.json" '回滚核心' "$mode"
 )
 sf_status() {
-    local state g role health status='未运行' running='—'
-    sf_msg 'SF-Xray-Hop'
-    sf_msg "脚本版本：$SFXH_VERSION"
-    if [[ -f $SFXH_CODE/source.json ]]; then sf_msg "管理器源码：$(jq -r '.commit//"离线包"' "$SFXH_CODE/source.json")"; fi
-    if ! sf_installed; then sf_msg '安装状态：尚未安装'; return 0; fi
-    state=$(sf_state) || return; g=$(basename "$(dirname "$state")")
-    role=$(sf_role_label "$(sf_role "$state")")
-    if systemctl is-active --quiet xray.service; then status='运行中（不代表公网可达）'; running=$(sf_running_core_version) || running='—'; fi
+    local state role channel status='未运行' running='—' color=31 configured
+    if ! sf_installed; then
+        sf_ui_line '1;36' "SF-Xray-Hop  ·  v$SFXH_VERSION"
+        sf_ui_row '状态' '尚未安装'
+        return 0
+    fi
+    state=$(sf_state) || return
+    case "$(sf_role "$state")" in entry) role="入口 A" ;; exit) role="出口 B" ;; *) role="单机" ;; esac
+    if systemctl is-active --quiet xray.service; then
+        status='运行中'; color=32; running=$(sf_running_core_version) || running='未知'
+    fi
+    sf_msg ''
+    sf_paint '1;36' "SF-Xray-Hop  ·  v$SFXH_VERSION  " >&2
+    sf_ui_line "$color" "● $status"
+    sf_ui_line 2 '────────────────────────────────────────'
+    sf_ui_row '节点' "$(jq -r .node.name "$state") · $role"
     sf_os_read >/dev/null 2>&1 || :
-    sf_msg "当前机器：$role（$(jq -r .node.name "$state")）"
-    sf_msg "操作系统：$SF_OS_ID $SF_OS_VERSION"
-    sf_msg "本机地址：$(jq -r '.node.address+":"+(.node.port|tostring)' "$state")"
-    sf_msg "运行核心：$running；配置核心：$(jq -r .core.version "$state")；频道：$(jq -r .core.channel "$state")"
-    sf_msg "服务状态：$status"
-    sf_msg "本机 RTT：$(jq -r '.encryption.rtt+"-RTT"' "$state")；SNI：$(jq -r .reality.serverName "$state")"
-    sf_msg "直连路径：设备 → $(jq -r .node.name "$state") → Internet"
+    sf_ui_row '地址' "$(jq -r '.node.address+":"+(.node.port|tostring)' "$state") · $SF_OS_ID $SF_OS_VERSION"
+    channel=$(jq -r '.core.channel' "$state")
+    case "$channel" in stable) channel='正式版' ;; pre) channel='Pre' ;; pinned) channel='指定版本' ;; esac
+    sf_ui_row '核心' "$running · $channel"
+    configured=$(jq -r .core.version "$state")
+    if [[ $running != "$configured" ]]; then sf_ui_line 33 "  配置核心为 $configured，与运行版本不同。"; fi
+    sf_ui_row '连接' "$(jq -r '.encryption.rtt+"-RTT · "+.reality.serverName' "$state")"
     if jq -e '.nextHop!=null' "$state" >/dev/null; then
-        sf_msg "出口地址：$(jq -r '.nextHop.address+":"+(.nextHop.port|tostring)' "$state")"
-        sf_msg "链式路径：设备 → $(jq -r .node.name "$state") → $(sf_jq -r 'include "model"; downstream_name' "$state") → Internet"
-        sf_msg "下游 RTT：$(jq -r '.nextHop.encryption|split(".")[2]' "$state")"
-    elif [[ $(sf_role "$state") == exit ]]; then sf_msg '链式状态：用途为出口 B，入口连接状态未知；可达性见最近检测'
-    else sf_msg '链式状态：尚未启用'; fi
-    health=$SFXH_VAR/cache/health.json
-    if [[ -f $health ]] && jq -e --arg g "$g" '.generation==$g' "$health" >/dev/null; then
-        sf_msg "最近检测：$(jq -r '.checkedAt+" / "+(if .status=="failed" then "失败" elif .status=="unverified-offline" then "离线恢复，出口未验证" else "本机协议通过（历史结果）" end)' "$health")"
-    else sf_msg '最近检测：未检测'; fi
-    if [[ -r /proc/meminfo ]]; then
-        awk '/MemTotal:/{total=$2}/MemAvailable:/{avail=$2}END{if(total>0)printf "内存：%.0f / %.0f MiB（已用 / 总计）\n",(total-avail)/1024,total/1024}' /proc/meminfo >&2
+        sf_ui_row '链式' "入口 → $(sf_jq -r 'include "model"; downstream_name' "$state")"
+    elif [[ $(sf_role "$state") == exit ]]; then
+        sf_ui_row '链式' '出口节点'
+    else
+        sf_ui_row '链式' '未配置'
     fi
 }
 sf_logs() { local file; for file in "$SFXH_LOG/manager/manager.log" "$SFXH_LOG/core/core.log"; do [[ ! -f $file ]] || tail -n 100 "$file" | sf_redact; done; }

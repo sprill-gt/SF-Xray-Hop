@@ -3,14 +3,16 @@ sf_ask_choice() {
     sf_tty || { sf_usage_error '需要交互终端；非交互调用请提供明确参数。'; return 2; }
     local title=$1 label default='' choice
     shift
-    sf_msg ''; sf_msg "$title"
+    sf_msg ''; sf_ui_line '1;36' "$title"
     local -a choices=()
     for label in "$@"; do
         if [[ $label == --default=* ]]; then default=${label#*=}; continue; fi
-        sf_msg "$label"; choices+=("${label%%.*}")
+        if [[ $label == @* ]]; then sf_ui_line 2 "  ${label#@}"; continue; fi
+        sf_paint 36 "  ${label%%.*}." >&2; printf ' %s\n' "${label#*. }" >&2
+        choices+=("${label%%.*}")
     done
     while :; do
-        printf '请输入数字：' >&2
+        sf_paint '1;36' '选择 › ' >&2
         IFS= read -r SF_REPLY || return 130
         [[ -n $SF_REPLY ]] || SF_REPLY=$default
         for choice in "${choices[@]}"; do [[ $SF_REPLY != "$choice" ]] || return 0; done
@@ -55,7 +57,7 @@ sf_exit_instructions() {
     sf_msg '保留当前入口 A（1号机）窗口，打开出口 B（2号机）的 SSH 窗口。'
     sf_msg '若出口未安装，使用同一已验证发行来源：'
     if ! sf_install_command >&2; then sf_msg '本机来自离线包；复制同一完整发行包，在包目录运行 sudo bash install.sh。'; fi
-    sf_msg '在出口 B 运行 sudo sfxh → 1 链式引导 → 2 出口 B。'
+    sf_msg '在出口 B 运行 sudo sfxh → 1 配置链式 → 2 出口 B。'
     sf_msg '显示“对接链接”，复制完整一行；回到入口 A 的当前步骤粘贴。'
     sf_msg '设备最终使用入口 A 的链式链接；两台机器不需要 SSH 信任。'
 }
@@ -101,20 +103,47 @@ sf_entry_registration_menu() {
     [[ -z $name ]] || sf_safe_name "$name" || { sf_msg '名称无效，地址尚未保存。'; return 2; }
     sf_set_entry "$address" "$name"
 }
-sf_guide() {
-    local position='' state role code
-    sf_tty || { sf_usage_error '向导需要交互终端；自动化请用 chain 和 node 命令。'; return 2; }
-    if ! sf_installed; then sf_install || return; fi
-    state=$(sf_state) || return; role=$(sf_role "$state") || return
-    sf_msg "当前机器：$(jq -r '.node.name+" / "+.node.address' "$state")；用途：$(sf_role_label "$role")"
-    if [[ $role == entry ]]; then
+sf_chain_setup_menu() {
+    local state
+    state=$(sf_state) || return
+    if [[ $(sf_role "$state") == entry ]]; then
+        sf_msg '链式已配置；更换或移除出口请进入「管理链式」。'
+        return 0
+    fi
+    sf_guide
+}
+sf_chain_manage_menu() {
+    local state
+    state=$(sf_state) || return
+    case "$(sf_role "$state")" in
+        exit) sf_exit_menu; return $? ;;
+        entry) : ;;
+        *) sf_msg '尚未配置链式，请先选择「配置链式」。'; return 0 ;;
+    esac
         while :; do
             sf_ask_choice '管理当前链式连接' '1. 检查连接并查看设备链接' '2. 更换出口' '3. 取消链式，恢复本机出口' '4. 排障与测速' '5. 查看日志' '0. 返回' || return
             case "$SF_REPLY" in 1) sf_health_current && sf_guide_complete ;; 2) sf_chain_change replace && sf_guide_save entry complete && sf_guide_complete ;;
                 3) sf_chain_remove && return 0 ;; 4) sf_test_menu ;; 5) sf_logs ;; 0) return 0 ;; esac
             sf_action_done "$?"
         done
-    fi
+}
+sf_exit_menu() {
+        while :; do
+            sf_ask_choice '出口管理' '1. 显示对接链接，交给入口 A' '2. 可选登记入口地址' '3. 显示本机直连链接' '4. 检查连接与测速' '0. 返回' || return
+            case "$SF_REPLY" in
+                1) sf_view handoff || return
+                   sf_msg '切换到 A：sfxh → 1 配置链式 → 1 入口 A → 粘贴。设备链式链接将在 A 生成。' ;;
+                2) sf_entry_registration_menu ;; 3) sf_view direct ;; 4) sf_test_menu ;; 0) return 0 ;;
+            esac
+        done
+}
+sf_guide() {
+    local position='' state role code
+    sf_tty || { sf_usage_error '向导需要交互终端；自动化请用 chain 和 node 命令。'; return 2; }
+    if ! sf_installed; then sf_install || return; fi
+    state=$(sf_state) || return; role=$(sf_role "$state") || return
+    sf_msg "当前机器：$(jq -r '.node.name+" / "+.node.address' "$state")；用途：$(sf_role_label "$role")"
+    if [[ $role == entry ]]; then sf_chain_manage_menu; return $?; fi
     if [[ -f $SFXH_ETC/guide.json ]]; then
         sf_ask_choice '检测到向导进度' '1. 继续上次用途' '2. 重新选择用途' '0. 返回' || return
         case "$SF_REPLY" in 1) position=$(jq -r '.position' "$SFXH_ETC/guide.json"); [[ $position == entry || $position == exit ]] || position='' ;; 0) return 0 ;; esac
@@ -126,14 +155,7 @@ sf_guide() {
     if [[ $position == exit ]]; then
         sf_health_current && sf_set_role exit && sf_guide_save exit ready || return
         sf_msg '出口已配置，等待 A 对接（本机没有入口连接成功的证据）。'
-        while :; do
-            sf_ask_choice '出口管理' '1. 显示对接链接，交给入口 A' '2. 可选登记入口地址' '3. 显示本机直连链接' '4. 检查连接与测速' '0. 返回' || return
-            case "$SF_REPLY" in
-                1) sf_view handoff || return
-                   sf_msg '切换到 A：sfxh → 1 链式引导 → 1 入口 A → 粘贴。设备链式链接将在 A 生成。' ;;
-                2) sf_entry_registration_menu ;; 3) sf_view direct ;; 4) sf_test_menu ;; 0) return 0 ;;
-            esac
-        done
+        sf_exit_menu; return $?
     fi
     sf_guide_save entry awaiting_link || return
     while :; do
@@ -202,47 +224,70 @@ sf_core_select_menu() {
 }
 sf_core_menu() {
     while :; do
-        sf_msg "核心最低版本：$SFXH_MIN_CORE；默认更新跟随最新核心（正式版 / Pre 取较大版本）。"
-        sf_ask_choice 'Xray 核心版本' '1. 更新到最新核心（比较正式版与 Pre，默认）' '2. 自主选择版本（直接输入版本号）' '3. 恢复上一可用核心' '4. 选择本地历史核心' '5. 更新到最新正式版（高级）' '0. 返回' || return
+        sf_ui_line 2 '自动比较正式版与 Pre，选择更高版本。'
+        sf_ask_choice 'Xray 核心' '1. 更新到最新版本' '2. 指定版本号' '3. 恢复上一版本' '4. 选择本地历史版本' '0. 返回' || return
         case "$SF_REPLY" in
-            1) sf_core_update ;;
-            2) sf_core_select_menu ;;
-            3) sf_core_rollback --previous ;; 4) sf_core_rollback ;; 5) sf_core_update --channel stable ;; 0) return 0 ;;
+            1) sf_core_update ;; 2) sf_core_select_menu ;;
+            3) sf_core_rollback --previous ;; 4) sf_core_rollback ;; 0) return 0 ;;
         esac
+        sf_action_done "$?"
+    done
+}
+sf_share_menu() {
+    local state role
+    state=$(sf_state) || return; role=$(sf_role "$state") || return
+    local -a options=('1. 直连链接')
+    case "$role" in
+        entry) options+=('2. 链式链接' '3. 直连客户端 JSON' '4. 链式客户端 JSON') ;;
+        exit) options+=('2. 出口对接链接' '3. 直连客户端 JSON') ;;
+        *) options+=('2. 直连客户端 JSON') ;;
+    esac
+    sf_ask_choice '分享链接' "${options[@]}" '0. 返回' || return
+    case "$SF_REPLY" in
+        1) sf_view direct ;;
+        2) case "$role" in entry) sf_view relay ;; exit) sf_view handoff ;; *) sf_view json direct ;; esac ;;
+        3) sf_view json direct ;; 4) sf_view json relay ;; 0) return 0 ;;
+    esac
+}
+sf_connection_menu() {
+    while :; do
+        sf_ask_choice '连接设置' '1. 修改 SNI' '2. RTT 设置' '0. 返回' || return
+        case "$SF_REPLY" in 1) sf_sni_menu ;; 2) sf_rtt_menu ;; 0) return 0 ;; esac
         sf_action_done "$?"
     done
 }
 sf_self_menu() {
     sf_self_info
-    sf_self_check || :
     sf_ask_choice '脚本自身更新（核心与节点参数保持）' '1. 更新到最新项目正式发行版' '2. 回滚上一个可恢复脚本' '0. 返回' || return
     case "$SF_REPLY" in 1) sf_self_update || return ;; 2) sf_self_rollback || return ;; 0) return 0 ;; esac
     if [[ ${SFXH_TEST_MODE:-0} != 1 ]]; then exec bash "$SFXH_INSTALL/sf-xray-hop" menu; fi
 }
 sf_test_menu() {
-    sf_ask_choice '连接检查' '1. 测试两条身份线路' '2. 完整诊断' '3. 下游测试及 ICMP' '4. 性能测试（消耗流量）' '0. 返回' || return
+    sf_ask_choice '连接检查' '1. 测试两条身份线路' '2. 完整诊断' '3. 下游测试及 ICMP' '4. 性能测试（消耗流量）' '5. 查看日志' '0. 返回' || return
     case "$SF_REPLY" in 1) sf_health_current ;; 2) sf_doctor ;; 3) sf_chain_test ;;
         4) sf_bench_notice || return
            sf_ask_choice '测试线路' '1. Relay' '2. Direct' '0. 返回' || return
-           case "$SF_REPLY" in 1) sf_benchmark relay ;; 2) sf_benchmark direct ;; 0) return 0 ;; esac ;; 0) return 0 ;; esac
+           case "$SF_REPLY" in 1) sf_benchmark relay ;; 2) sf_benchmark direct ;; 0) return 0 ;; esac ;; 5) sf_logs ;; 0) return 0 ;; esac
 }
 sf_menu() {
     sf_tty || { sf_help; return 2; }
     while :; do
+        if sf_color_enabled; then printf '\033[H\033[2J' >&2; fi
         sf_status
         if ! sf_installed; then
             sf_ask_choice 'SF-Xray-Hop' '1. 安装本机' '2. 链式连接引导' '3. 检查安装环境' '0. 退出' --default=0 || return
             case "$SF_REPLY" in 1) sf_setup ;; 2) sf_guide ;; 3) sf_platform_check ;; 0) return 0 ;; esac
         else
             sf_ask_choice '主菜单' \
-                '1. 启动 / 管理链式代理引导' '2. Xray 核心版本（最新版本 / 自主选择 / 历史恢复）' \
-                '3. 显示直连代理分享链接' '4. 显示链式代理分享链接' '5. 节点设置（名称 / 角色 / 关联机器）' \
-                '6. 修改 SNI' '7. RTT 设置' '8. 更新 SF-Xray-Hop 脚本' \
-                '9. Xray 更新到最新核心（正式版 / Pre 取较大版本）' '10. Xray 自主选择版本（输入版本号）' '11. Xray 恢复上一可用核心' \
-                '12. 完整卸载' '0. 退出' --default=0 || return
-            case "$SF_REPLY" in 1) sf_guide ;; 2) sf_core_menu ;; 3) sf_view direct ;; 4) sf_chain_view_menu ;; 5) sf_node_menu ;; 6) sf_sni_menu ;; 7) sf_rtt_menu ;; 8) sf_self_menu ;;
-                9) sf_core_update ;; 10) sf_core_select_menu ;; 11) sf_core_rollback --previous ;;
-                12) sf_uninstall; if ! sf_installed; then return 0; fi ;; 0) return 0 ;; esac
+                '@连接' '1. 配置链式' '2. 管理链式' '3. 分享链接' \
+                '@节点' '4. 节点设置' '5. 连接设置' \
+                '@维护' '6. Xray 核心' '7. 检测与日志' '8. 更新管理脚本' '9. 卸载' '0. 退出' --default=0 || return
+            case "$SF_REPLY" in
+                1) sf_chain_setup_menu ;; 2) sf_chain_manage_menu ;; 3) sf_share_menu ;;
+                4) sf_node_menu; continue ;; 5) sf_connection_menu; continue ;; 6) sf_core_menu; continue ;;
+                7) sf_test_menu ;; 8) sf_self_menu ;;
+                9) sf_uninstall; if ! sf_installed; then return 0; fi ;; 0) return 0 ;;
+            esac
         fi
         sf_action_done "$?"
     done
@@ -253,9 +298,9 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   无参数                        中文数字菜单
   version                       查看当前脚本版本，无需 sudo／联网
   --version                     仅输出脚本版本号，供自动化读取
-  install [选项]                默认443 / 0-RTT / archive.archlinux.org / pre
+  install [选项]                默认443 / 0-RTT / archive.archlinux.org / 最新核心
                                 --address 地址 --port 端口 --rtt 0|1 --target 域名|auto
-                                --name 名称 --channel pre|stable --version 核心版本
+                                --name 名称 --channel auto|pre|stable --version 核心版本
   guide                         两端链式连接引导
   view [direct|relay|handoff]    默认直连；relay 仅入口，handoff 仅出口
   view json [direct|relay]       客户端 JSON，默认 direct，HTTP 127.0.0.1:10809
