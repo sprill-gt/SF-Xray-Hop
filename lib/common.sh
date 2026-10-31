@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-SFXH_VERSION=1.1.0
+SFXH_VERSION=1.1.1
 SFXH_DEFAULT_TRACK=latest
 SFXH_MIN_CORE=26.9.9
 sf_paths() {

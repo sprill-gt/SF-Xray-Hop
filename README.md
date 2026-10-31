@@ -6,10 +6,10 @@
 
 ## 安装
 
-**v1.1.0 正式版**。完整源码也可直接执行 `sudo bash install.sh`。
+**v1.1.1 测试版（Pre）**，用于脚本稳定/测试通道互切验证。正式版入口为 v1.1.0。完整源码也可直接执行 `sudo bash install.sh`。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v1.1.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v1.1.1/install.sh) --rc
 ```
 
 固定版本 HTTPS 引导；完整包校验发行清单和 SHA256。非交互安装不输出凭据。可选 `--core-track stable`、`--bbr on`；默认不修改系统拥塞控制。旧安装迁移到本版需使用相同入口追加 `--upgrade-manager`，参见[运维](docs/operations.md)。
