@@ -20,13 +20,13 @@ for file in shells:
     result = subprocess.run([BASH, "-n", str(file)], capture_output=True, text=True)
     if result.returncode:
         failures.append(f"syntax {file.relative_to(ROOT)}: {result.stderr}")
-source_files = shells + list(ROOT.glob("docs/*.md")) + [ROOT / "README.md"]
+source_files = shells + list((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md", ROOT / "SECURITY.md", ROOT / "CHANGELOG.md"]
 source_files += list(ROOT.glob("templates/*")) + list(ROOT.glob("data/*")) + list(ROOT.glob("systemd/*"))
 source_files += list(ROOT.glob("tests/*.py")) + list(ROOT.glob("tools/*.py"))
 for file in source_files:
     if b"\r\n" in file.read_bytes():
         failures.append(f"CRLF: {file.relative_to(ROOT)}")
-for file in list(ROOT.glob("docs/*.md")) + [ROOT / "README.md"]:
+for file in list((ROOT / "docs").rglob("*.md")) + [ROOT / "README.md", ROOT / "SECURITY.md", ROOT / "CHANGELOG.md"]:
     if re.search(r"raw\.githubusercontent\.com/sprill-gt/SF-Xray-Hop/main/install\.sh", file.read_text(encoding="utf-8")):
         failures.append(f"floating install command: {file.name}")
     for link in re.findall(r"\]\(([^)]+)\)", file.read_text(encoding="utf-8")):
@@ -39,7 +39,7 @@ for file in list(ROOT.glob("lib/*.sh")):
     if re.search(r"^\s*eval\s", text, re.M):
         failures.append(f"eval in {file.name}")
 cli = (ROOT / "docs/cli.md").read_text(encoding="utf-8")
-for command in ("install", "guide", "view", "status", "doctor", "test", "chain", "rtt", "target", "fingerprint", "core", "self", "node", "logs", "uninstall"):
+for command in ("install", "guide", "view", "status", "doctor", "test", "chain", "rtt", "target", "fingerprint", "core", "self", "node", "logs", "uninstall", "core track", "tune bbr"):
     if f"sfxh {command}" not in cli:
         failures.append(f"undocumented command: {command}")
 for file in source_files:

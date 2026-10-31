@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-SFXH_VERSION=0.2.9
+SFXH_VERSION=0.2.10
+SFXH_DEFAULT_TRACK=latest
 SFXH_MIN_CORE=26.9.9
 sf_paths() {
     local prefix=''

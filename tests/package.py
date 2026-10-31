@@ -19,7 +19,7 @@ with tarfile.open(archive) as tar:
         files[name] = tar.extractfile(member).read()
         assert files[name] == (root/name).read_bytes() and b'\r\n' not in files[name]
         assert member.mode == (0o755 if name.endswith('.sh') or name in ('sf-xray-hop','sfxh') else 0o644)
-    for name in ('lib/core-safety-worker.sh', 'data/core-safety.json', 'templates/model.jq', 'systemd/xray.service', 'install.sh'):
+    for name in ('LICENSE', 'SECURITY.md', 'CHANGELOG.md', 'lib/tune.sh', 'data/core-denylist.json', 'data/legacy-units.sha256', 'lib/core-safety-worker.sh', 'data/core-safety.json', 'templates/model.jq', 'systemd/xray.service', 'install.sh'):
         assert name in files, f'missing runtime dependency: {name}'
     for source in (files['sf-xray-hop'].decode(),):
         modules = re.search(r'for module in (.*?); do', source)[1].split()

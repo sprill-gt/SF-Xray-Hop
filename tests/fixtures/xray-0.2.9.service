@@ -1,0 +1,33 @@
+[Unit]
+Description=SF-Xray-Hop managed Xray
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=sfxray
+Group=sfxray
+UMask=0077
+RuntimeDirectory=sf-xray-hop
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ExecStartPre=+/usr/local/lib/sf-xray-hop/sf-xray-hop internal prepare-runtime
+ExecStart=/usr/local/lib/sf-xray-hop/sf-xray-hop internal runtime
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+KillMode=control-group
+NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/etc/sf-xray-hop /run/sf-xray-hop /run/lock /var/log/sf-xray-hop
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

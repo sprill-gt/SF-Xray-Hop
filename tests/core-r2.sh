@@ -55,7 +55,7 @@ pass 'default update also compares stable and Pre after an explicit stable choic
 jq '.core.channel="pinned"|.core.pinnedVersion=.core.version' "$work/current.json" > "$work/pinned.json"
 cp "$work/pinned.json" "$work/current.json"
 sf_core_check > "$work/output" 2>&1
-[[ $(tail -n 1 "$work/channels") == auto && -z $(tail -n 1 "$work/requested-versions") ]]
+[[ $(tail -n 2 "$work/channels" | head -n 1) == auto && $(tail -n 1 "$work/channels") == stable ]]
 grep -q 'v26.9.30' "$work/output"
 cmp "$work/current.json" "$work/pinned.json"
 pass 'check reports the latest stable-or-Pre without changing a selected version'
@@ -114,6 +114,16 @@ sf_core_rollback > "$work/output" 2>&1
 ! grep -q 26.9.8 "$work/history-menu"
 jq -e '.core.version=="26.9.9"' "$work/committed.json" >/dev/null
 pass 'interactive local history omits unsupported versions'
+jq '.core.track="stable"' "$work/current.json" > "$work/track.json"
+cp "$work/track.json" "$work/current.json"
+sf_core_update --yes > "$work/output" 2>&1
+[[ $(tail -n 1 "$work/channels") == stable ]]
+jq -e '.core.track=="stable"' "$work/committed.json" >/dev/null
+sf_core_update --channel pre --yes > "$work/output" 2>&1
+[[ $(tail -n 1 "$work/channels") == pre ]]
+jq -e '.core.track=="stable"' "$work/committed.json" >/dev/null
+reject sf_core_track invalid
+pass 'saved stable intent controls default update; explicit Pre does not change intent'
 # Restore the real download guard. The fixture deliberately is not a ZIP: a
 # changed archive must be stopped before extraction or execution is attempted.
 source "$SFXH_CODE/lib/core.sh"

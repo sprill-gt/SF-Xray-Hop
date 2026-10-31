@@ -205,12 +205,19 @@ def main():
         finally:
             stop(proc)
 
-    def request_udp(profile, label, destination_port, expected=None, blocked=False):
+    def request_udp(profile, label, destination_port, expected=None, blocked=False, exported=False):
         listen_port = port()
         config = model(profile, f"client_config(.;{listen_port})")
         config["log"]["loglevel"] = "debug"
-        config["inbounds"][0]["protocol"] = "socks"
-        config["inbounds"][0]["settings"] = {"auth": "noauth", "udp": True, "ip": "127.0.0.1"}
+        if exported:
+            config = model(profile, "exported_client_config(.)")
+            config["log"]["loglevel"] = "debug"
+            config["inbounds"][0]["port"] = port()
+            config["inbounds"][1]["port"] = listen_port
+            config["inbounds"][1]["settings"]["ip"] = "127.0.0.1"
+        else:
+            config["inbounds"][0]["protocol"] = "socks"
+            config["inbounds"][0]["settings"] = {"auth": "noauth", "udp": True, "ip": "127.0.0.1"}
         file = work / f"client-{label}.json"
         save(file, config)
         proc = start(args.core, file, listen_port, work / f"client-{label}.log")
@@ -243,8 +250,12 @@ def main():
                     except socket.timeout:
                         if not blocked:
                             raise RuntimeError(f"{label}: UDP response timed out")
-                        marker = f"blocked target: udp:127.0.0.1:{destination_port}"
-                        assert any(marker in log.read_text(errors="replace") for log in work.glob("B-*.log")), f"{label}: missing explicit core block evidence"
+                        if exported:
+                            marker = f"taking detour [block] for [udp:127.0.0.1:{destination_port}]"
+                            assert marker in (work / f"client-{label}.log").read_text(errors="replace"), f"{label}: missing local blackhole routing evidence"
+                        else:
+                            marker = f"blocked target: udp:127.0.0.1:{destination_port}"
+                            assert any(marker in log.read_text(errors="replace") for log in work.glob("B-*.log")), f"{label}: missing explicit core block evidence"
                     else:
                         assert not blocked, f"{label}: private UDP destination was reachable"
                         assert response[:10] == packet[:10], f"{label}: UDP destination mismatch"
@@ -265,7 +276,8 @@ def main():
             relay = model(a, 'public_profile(.;"relay")')
             request(direct, f"{rtt}rtt-single-direct", "127.0.0.11")
             request(relay, f"{rtt}rtt-single-relay", "127.0.0.11")
-            request_udp(direct, f"{rtt}rtt-single-udp", udp_port, "127.0.0.11")
+            request_udp(direct, f"{rtt}rtt-single-udp", udp_port, "127.0.0.11", exported=True)
+            request_udp(direct, f"{rtt}rtt-export-udp443-blocked", 443, blocked=True, exported=True)
             for fingerprint in ("firefox", "safari"):
                 variant = copy.deepcopy(direct)
                 variant["fingerprint"] = fingerprint

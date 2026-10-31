@@ -77,6 +77,33 @@ sf_self_download() {
       '{kind:"github-release",version:$version,commit:$commit,archiveSha256:$hash,prerelease:$pre}' > "$work/package/source.json"
     sf_msg "已验证脚本包：$version；提交：$commit"
 }
+sf_manager_unit_compatible() {
+    local candidate=$1 hash
+    [[ -f $SFXH_UNIT && ! -L $SFXH_UNIT ]] || return 1
+    cmp -s "$candidate/systemd/xray.service" "$SFXH_UNIT" && return 0
+    hash=$(sf_hash "$SFXH_UNIT") || return
+    [[ -f $candidate/data/legacy-units.sha256 ]] && grep -qxF "$hash" "$candidate/data/legacy-units.sha256" || {
+        sf_fail '现有 unit 不是已知迁移基线，拒绝覆盖本地修改。'; return 1;
+    }
+    systemd-analyze verify "$candidate/systemd/xray.service" || return
+}
+sf_manager_install_unit() {
+    local source=$1 temp
+    [[ -f $source && ! -L $source && ! -L $SFXH_UNIT ]] || return 1
+    temp=$(mktemp "${SFXH_UNIT%/*}/.xray-unit.XXXXXXXX") || return
+    if install -m 644 "$source" "$temp" && sf_sync "$temp" && mv -f -- "$temp" "$SFXH_UNIT" && sf_sync "${SFXH_UNIT%/*}"; then
+        systemctl daemon-reload
+    else rm -f -- "$temp"; return 1; fi
+}
+sf_manager_restore_unit() {
+    local journal=$SFXH_ETC/manager-transaction.json expected
+    [[ -f $journal ]] || return 0
+    if jq -e '.unitMigration==true' "$journal" >/dev/null; then
+        expected=$(jq -er '.unitBackupSha256|select(test("^[a-f0-9]{64}$"))' "$journal") || return
+        [[ -f $SFXH_ETC/manager-unit-backup && ! -L $SFXH_ETC/manager-unit-backup && $(sf_hash "$SFXH_ETC/manager-unit-backup") == "$expected" ]] || return 1
+        sf_manager_install_unit "$SFXH_ETC/manager-unit-backup" || return
+    fi
+}
 sf_manager_compatible() (
     local candidate=$1 work=$2 current module binary
     SFXH_CODE=$candidate
@@ -84,7 +111,7 @@ sf_manager_compatible() (
     for module in common model core; do source "$candidate/lib/$module.sh" || return; done
     sf_paths
     current=$(sf_generation) || return
-    cmp -s "$candidate/systemd/xray.service" "$SFXH_UNIT" || { sf_fail '脚本要求服务单元迁移，本版本拒绝自动改变运行服务。'; return 1; }
+    sf_manager_unit_compatible "$candidate" || return
     sf_validate_state "$current/state.json" && sf_render "$current/state.json" "$work/rendered.json" || return
     jq -S . "$work/rendered.json" > "$work/new.sorted" && jq -S . "$current/config.json" > "$work/current.sorted" || return
     cmp -s "$work/new.sorted" "$work/current.sorted" || { sf_fail '目标脚本不能保持当前运行配置，拒绝切换。'; return 1; }
@@ -97,9 +124,10 @@ sf_self_recover() {
     old=$(jq -er .old "$file") || return
     previous=$(jq -r '.previous//""' "$file") || return
     [[ $old =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{16}$ ]] || return 1
+    sf_manager_restore_unit || return
     sf_manager_activate "$SFXH_INSTALL/releases/$old" || return
     sf_manager_restore_previous "$previous" || return
-    rm -f -- "$file"
+    rm -f -- "$file" "$SFXH_ETC/manager-unit-backup"
     sf_msg '已恢复中断脚本更新前的完整版本；节点状态和运行服务未回退。'
     sf_msg '请重新运行命令，让入口载入恢复后的完整脚本。'
     return 75
@@ -126,14 +154,14 @@ sf_manager_prune() {
     done < <(find "$SFXH_INSTALL/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
 }
 sf_manager_switch() (
-    local source=$1 work current next previous='' switched=0 complete=0
+    local source=$1 work current next previous='' switched=0 complete=0 unit_change=false unit_hash=''
     sf_root && sf_installed && sf_recover && sf_lock || return
     [[ $(cat "$SFXH_ETC/owner") == SF-Xray-Hop ]] && grep -q 'SF-Xray-Hop managed' "$SFXH_UNIT" || return 1
     work=$(sf_temp) || return
     sf_switch_finish() {
         local rc=$?
         if ((switched && !complete)); then
-            sf_manager_activate "$current" && sf_manager_restore_previous "${previous##*/}" && rm -f "$SFXH_ETC/manager-transaction.json" || sf_msg '脚本恢复尚未完成；保留恢复记录。'
+            sf_manager_restore_unit && sf_manager_activate "$current" && sf_manager_restore_previous "${previous##*/}" && rm -f "$SFXH_ETC/manager-transaction.json" || sf_msg '脚本恢复尚未完成；保留恢复记录。'
         fi
         sf_manager_prune || sf_msg '脚本历史清理未完成，将在下次操作重试。'
         sf_remove_tree "$work"; sf_unlock; return "$rc"
@@ -154,16 +182,27 @@ sf_manager_switch() (
     fi
     sf_manager_compatible "$next" "$work" || return
     [[ $current != "$next" ]] || { sf_msg '脚本内容没有变化。'; return 0; }
-    jq -n --arg old "${current##*/}" --arg new "${next##*/}" --arg previous "${previous##*/}" '{old:$old,new:$new,previous:$previous}' > "$work/journal.json" &&
+    if ! cmp -s "$next/systemd/xray.service" "$SFXH_UNIT"; then
+        unit_change=true
+        [[ ! -L $SFXH_ETC/manager-unit-backup ]] || return 1
+        install -m 600 "$SFXH_UNIT" "$SFXH_ETC/manager-unit-backup" && sf_sync "$SFXH_ETC/manager-unit-backup" || return
+        unit_hash=$(sf_hash "$SFXH_ETC/manager-unit-backup") || return
+    fi
+    jq -n --arg old "${current##*/}" --arg new "${next##*/}" --arg previous "${previous##*/}" --argjson migration "$unit_change" --arg hash "$unit_hash" \
+      '{old:$old,new:$new,previous:$previous,unitMigration:$migration,unitBackupSha256:$hash}' > "$work/journal.json" &&
       sf_atomic_json "$SFXH_ETC/manager-transaction.json" "$work/journal.json" || return
     switched=1
     sf_manager_activate "$next" "$current" || return
+    if [[ $unit_change == true ]]; then
+        sf_manager_install_unit "$next/systemd/xray.service" || return
+        sf_msg '服务单元已迁移并 daemon-reload；加固在下次明确重启时生效，本次不重启运行核心。'
+    fi
     sf_manager_checkpoint after-switch
     sf_manager_verify "$next" && sf_manager_compatible "$next" "$work" &&
       bash "$SFXH_INSTALL/sf-xray-hop" --version > "$work/version.txt" || return
     [[ $(cat "$work/version.txt") == "$(sed -nE 's/^SFXH_VERSION=([0-9.]+)$/\1/p' "$next/lib/common.sh")" ]] || return 1
     complete=1
-    rm -f -- "$SFXH_ETC/manager-transaction.json" || return
+    rm -f -- "$SFXH_ETC/manager-transaction.json" "$SFXH_ETC/manager-unit-backup" || return
     sf_event "MANAGER 已切换至 ${next##*/}"
     sf_msg "管理脚本已切换：${next##*/}；运行核心、身份和下游保持不变。"
 )

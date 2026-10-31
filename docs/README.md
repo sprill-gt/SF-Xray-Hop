@@ -4,15 +4,15 @@
 
 | 阅读目的 | 文档 |
 |---|---|
-| 2026-11-01 协议优化、三台生产状态与 TCP/UDP 验证 | [优化与验收](protocol-optimization-20261101.md) |
-| 当前0.2.6 RC、版本入口、日常试用及转正规则 | [RC 交付](release-candidate-0.2.6.md) |
-| 0.2.5 Debian 13生命周期与暂停范围 | [候选验收](release-candidate-0.2.5.md) |
-| 0.2.5 Debian 13双机生命周期、长链接与重连实测 | [Debian 13实机验收](vps-lifecycle-0.2.5-2026-10-01.md) |
-| 0.2.4历史公开包、固定方向完整生命周期及重连限制 | [0.2.4实机验收](vps-lifecycle-0.2.4-2026-10-01.md) |
-| 公开包生命周期、0.2.3干净安装缺陷 | [真实生命周期记录](vps-lifecycle-0.2.3-2026-10-01.md) |
-| 冻结0.2.3、最终包／GUI／持续运行验收 | [发布候选清单](release-candidate-0.2.3.md) |
-| v0.2.2生产审查处理、当前发布门槛 | [审查修正](audit-0.2.2.md) |
-| 仓库重建、当前发行与历史证据 | [重建说明](repository-2026-10-01.md) |
+| 2026-11-01 协议优化、三台生产状态与 TCP/UDP 验证 | [优化与验收](archive/protocol-optimization-20261101.md) |
+| 当前0.2.6 RC、版本入口、日常试用及转正规则 | [RC 交付](archive/release-candidate-0.2.6.md) |
+| 0.2.5 Debian 13生命周期与暂停范围 | [候选验收](archive/release-candidate-0.2.5.md) |
+| 0.2.5 Debian 13双机生命周期、长链接与重连实测 | [Debian 13实机验收](archive/vps-lifecycle-0.2.5-2026-10-01.md) |
+| 0.2.4历史公开包、固定方向完整生命周期及重连限制 | [0.2.4实机验收](archive/vps-lifecycle-0.2.4-2026-10-01.md) |
+| 公开包生命周期、0.2.3干净安装缺陷 | [真实生命周期记录](archive/vps-lifecycle-0.2.3-2026-10-01.md) |
+| 冻结0.2.3、最终包／GUI／持续运行验收 | [发布候选清单](archive/release-candidate-0.2.3.md) |
+| v0.2.2生产审查处理、当前发布门槛 | [审查修正](archive/audit-0.2.2.md) |
+| 仓库重建、当前发行与历史证据 | [重建说明](archive/repository-2026-10-01.md) |
 | 首次安装、环境要求 | [系统与安装](platforms.md) |
 | 两台服务器操作、更换出口 | [双机连接指南](two-node-guide.md) |
 | 数字菜单与命令 | [命令参考](cli.md) |
@@ -20,14 +20,14 @@
 | 开发约束、状态和事务 | [设计说明](design.md) |
 | Xray 协议与分享格式 | [协议依据](protocol.md) |
 | 平台矩阵和实际测试记录 | [验收](testing.md) |
-| VMISS中转 → 诺亚落地的后续验收 | [固定方向实机记录](vps-forward-2026-09-30.md) |
-| v0.2.x R2 实际部署与故障测试 | [R2 实机记录](vps-r2-2026-09-30.md) |
-| v0.1.1 历史混合系统双跳 | [早期实机记录](vps-2026-09-30.md) |
-| v0.1.3 审查、修复与验证边界 | [审查处理](audit-0.1.3.md) |
+| VMISS中转 → 诺亚落地的后续验收 | [固定方向实机记录](archive/vps-forward-2026-09-30.md) |
+| v0.2.x R2 实际部署与故障测试 | [R2 实机记录](archive/vps-r2-2026-09-30.md) |
+| v0.1.1 历史混合系统双跳 | [早期实机记录](archive/vps-2026-09-30.md) |
+| v0.1.3 审查、修复与验证边界 | [审查处理](archive/audit-0.1.3.md) |
 
 维护规则：命令和菜单变更同步更新指南；协议事实记录版本和来源；示例使用 example.com、文档保留地址与无效占位凭据。禁止提交真实凭据。根 README 仅作入口，不重复详细规范。
 
 - [R2 产品交互实施与边界](r2-implementation.md)
 - [用户提供的完整 R2 需求快照](requirements-r2.md)
 
-- [Argon 建议复核与实施](argon-review-20261101.md)
+- [Argon 建议复核与实施](archive/argon-review-20261101.md)

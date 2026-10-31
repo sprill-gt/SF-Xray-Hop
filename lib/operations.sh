@@ -90,36 +90,66 @@ sf_set_name() (
     trap 'sf_remove_tree "$SF_EDIT_WORK"' EXIT
     jq --arg name "$1" '.node.name=$name' "$SF_EDIT_STATE" > "$SF_EDIT_WORK/state.json" && sf_tx_apply "$SF_EDIT_WORK/state.json" '修改节点名称' online metadata
 )
+sf_core_track() (
+    local state track=${1:-}
+    [[ $# -le 1 ]] || return 2
+    if [[ -z $track ]]; then
+        state=$(sf_state) || return
+        sf_track_label "$(sf_core_track_value "$state")"; return
+    fi
+    [[ $track == latest || $track == stable ]] || { sf_usage_error 'track 允许 latest 或 stable。'; return 2; }
+    sf_edit_begin || return
+    trap 'sf_remove_tree "$SF_EDIT_WORK"; sf_unlock' EXIT
+    jq --arg track "$track" '.core.track=$track' "$SF_EDIT_STATE" > "$SF_EDIT_WORK/state.json" || return
+    sf_tx_apply "$SF_EDIT_WORK/state.json" '修改核心更新跟随' online metadata || return
+    sf_msg "已切换为 $(sf_track_label "$track")；运行更新到最新版本后生效。"
+)
+sf_core_warn_withdrawn() {
+    local configured=$1 running
+    sf_core_warn_version "$configured"
+    running=$(sf_running_core_version 2>/dev/null) || return 0
+    [[ $running == "$configured" ]] || sf_core_warn_version "$running"
+}
 sf_core_check() (
-    local work state
+    local work state track channel=auto
     state=$(sf_state) || return; work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"' EXIT
-    sf_release_metadata auto '' "$work/release.json" || return
-    sf_msg "当前：$(jq -r .core.version "$state")；当前选择：$(jq -r .core.channel "$state")；最新核心（正式版 / Pre 比较）：$(jq -r .tag_name "$work/release.json")"
+    track=$(sf_core_track_value "$state") || return
+    [[ $track != stable ]] || channel=stable
+    sf_core_warn_withdrawn "$(jq -r .core.version "$state")"
+    sf_release_metadata "$channel" '' "$work/release.json" || return
+    sf_msg "当前：$(jq -r .core.version "$state")（$(jq -r .core.channel "$state")）；跟随：$(sf_track_label "$track")；可用：$(jq -r .tag_name "$work/release.json")"
+    if [[ $track == latest ]]; then
+        if sf_release_metadata stable '' "$work/stable.json"; then sf_msg "最新正式版：$(jq -r .tag_name "$work/stable.json")"
+        else sf_msg '最新正式版查询未完成；未更改任何设置。'; fi
+    fi
 )
 sf_core_select() {
     [[ $# == 1 || ($# == 2 && $2 == --yes) ]] || { sf_usage_error '用法：sfxh core select 版本号 [--yes]'; return 2; }
-    sf_core_require_version "$1" || return
+    sf_core_require_version "$1" && sf_core_allowed "$1" || return
     sf_core_update --version "$@"
 }
 sf_core_update() (
-    local channel=auto version='' core work consent='' old direction archive=''
+    local channel='' version='' core work consent='' old direction archive=''
     while (($#)); do
         if [[ $1 == --yes ]]; then consent=--yes; shift; continue; fi
         [[ $# -ge 2 ]] || return 2
         case "$1" in --channel) channel=$2 ;; --version) sf_core_require_version "$2" || return; version=${2#v} ;; *) return 2 ;; esac
         shift 2
     done
-    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
+    [[ -z $channel || $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
     [[ -z $version ]] || channel=pinned
     sf_edit_begin || return; work=$SF_EDIT_WORK
     trap 'sf_remove_tree "$work"' EXIT
+    if [[ -z $channel ]]; then
+        if [[ $(sf_core_track_value "$SF_EDIT_STATE") == stable ]]; then channel=stable; else channel=auto; fi
+    fi
     if [[ $channel == pinned && -z $version ]]; then version=$(jq -r '.core.pinnedVersion // .core.version' "$SF_EDIT_STATE"); fi
     [[ -z $version ]] || sf_core_require_version "$version" || return
     sf_release_metadata "$channel" "$version" "$work/release.json" || return
     if [[ $channel == auto ]]; then channel=$(jq -r 'if .prerelease then "pre" else "stable" end' "$work/release.json") || return; fi
     version=$(jq -r '.tag_name|ltrimstr("v")' "$work/release.json")
-    sf_core_require_version "$version" || return
+    sf_core_require_version "$version" && sf_core_allowed "$version" || return
     old=$(jq -r .core.version "$SF_EDIT_STATE"); direction=$(sf_version_direction "$old" "$version") || return
     sf_msg "核心版本：$old → $version；选择方式：$channel"
     # Naming an exact version is already an explicit choice of that version.
@@ -130,7 +160,7 @@ sf_core_update() (
     if [[ $direction == same && $core != "$(jq -r .core.id "$SF_EDIT_STATE")" && $consent != --yes ]]; then
         sf_confirm '相同版本标签的二进制摘要发生变化。确认验证并替换此核心？' || return
     fi
-    jq --arg core "$core" --arg version "$version" --arg channel "$channel" '.core={id:$core,version:$version,channel:$channel,pinnedVersion:(if $channel=="pinned" then $version else null end)}' "$SF_EDIT_STATE" > "$work/state.json" || return
+    jq --arg core "$core" --arg version "$version" --arg channel "$channel" '.core += {id:$core,version:$version,channel:$channel,pinnedVersion:(if $channel=="pinned" then $version else null end)}' "$SF_EDIT_STATE" > "$work/state.json" || return
     sf_tx_apply "$work/state.json" '选择核心版本'
 )
 sf_core_rollback() (
@@ -174,8 +204,8 @@ sf_core_rollback() (
     [[ " ${ids[*]} " == *" $id "* ]] || { sf_usage_error '请指定已验证的完整核心归档 ID。'; return 2; }
     sf_core_verify_archive "$id" || return
     version=$(jq -r .version "$SFXH_VAR/cores/$id/metadata.json")
-    sf_core_require_version "$version" || return
-    jq --arg id "$id" --arg version "$version" '.core={id:$id,version:$version,channel:"pinned",pinnedVersion:$version}' "$SF_EDIT_STATE" > "$work/state.json" && sf_tx_apply "$work/state.json" '回滚核心' "$mode"
+    sf_core_require_version "$version" && sf_core_allowed "$version" || return
+    jq --arg id "$id" --arg version "$version" '.core += {id:$id,version:$version,channel:"pinned",pinnedVersion:$version}' "$SF_EDIT_STATE" > "$work/state.json" && sf_tx_apply "$work/state.json" '回滚核心' "$mode"
 )
 sf_status() {
     local state role channel status='未运行' running='—' color=31 configured
@@ -198,7 +228,7 @@ sf_status() {
     sf_ui_row '地址' "$(jq -r '.node.address+":"+(.node.port|tostring)' "$state") · $SF_OS_ID $SF_OS_VERSION"
     channel=$(jq -r '.core.channel' "$state")
     case "$channel" in stable) channel='正式版' ;; pre) channel='Pre' ;; pinned) channel='指定版本' ;; esac
-    sf_ui_row '核心' "$running · $channel"
+    sf_ui_row '核心' "$running · $channel · 跟随$(sf_track_label "$(sf_core_track_value "$state")")"
     configured=$(jq -r .core.version "$state")
     if [[ $running != "$configured" ]]; then sf_ui_line 33 "  配置核心为 $configured，与运行版本不同。"; fi
     sf_ui_row '连接' "$(jq -r '.encryption.rtt+"-RTT · "+.reality.serverName' "$state")"
@@ -243,6 +273,7 @@ sf_uninstall() (
             sf_msg "临时单元 $unit 所有权不符，保留该单元。"; partial=1
         fi
     done
+    if declare -F sf_bbr_restore >/dev/null; then sf_bbr_restore || { sf_unlock; return 1; }; fi
     if [[ -f $SFXH_UNIT ]]; then systemctl disable --now xray.service >/dev/null 2>&1 || { sf_unlock; return 1; }; fi
     touch "$SFXH_ETC/uninstalled" || { sf_unlock; return 1; }
     rm -f -- "$SFXH_UNIT" || { sf_unlock; return 1; }

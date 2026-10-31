@@ -30,6 +30,8 @@ sf_manager_copy() {
     for part in lib templates data systemd docs; do cp -R -- "$source/$part" "$dest/" || return; done
     for part in sf-xray-hop sfxh install.sh; do install -m 755 "$source/$part" "$dest/$part" || return; done
     install -m 644 "$source/README.md" "$dest/README.md" || return
+    local notice
+    for notice in LICENSE SECURITY.md CHANGELOG.md; do [[ ! -f $source/$notice ]] || install -m 644 "$source/$notice" "$dest/$notice" || return; done
     [[ ! -f $source/source.json ]] || install -m 644 "$source/source.json" "$dest/source.json" || return
     [[ -z $(find "$dest" -type l -print -quit) ]] || { sf_fail '管理程序包不得含符号链接。'; return 1; }
     chown -R root:root "$dest" && chmod -R go-w "$dest" || return

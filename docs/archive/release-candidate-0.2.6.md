@@ -30,4 +30,4 @@ sudo sfxh self update --version 0.2.6 --allow-pre
 sfxh version
 ```
 
-脚本升级不更换核心或节点凭据。默认更新仍仅选择项目正式发行；RC 必须明确指定版本与 `--allow-pre`。首次安装使用[根 README](../README.md)的固定摘要一键命令。发布资产中的 `manifest.json` 记录完整源码提交、包大小与 SHA256；已发布标签和资产不覆盖。
+脚本升级不更换核心或节点凭据。默认更新仍仅选择项目正式发行；RC 必须明确指定版本与 `--allow-pre`。首次安装使用[根 README](../../README.md)的固定摘要一键命令。发布资产中的 `manifest.json` 记录完整源码提交、包大小与 SHA256；已发布标签和资产不覆盖。
