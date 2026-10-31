@@ -6,6 +6,7 @@
 |---|---|
 | 2026-11-01 协议优化、三台生产状态与 TCP/UDP 验证 | [优化与验收](archive/protocol-optimization-20261101.md) |
 | 当前正式版、安装入口和验证边界 | [1.1.0 发行说明](releases/1.1.0.md) |
+| 正式发行、脚本 stable/pre 双向切换与旧身份连接 | [1.1.0 节点C实测](live-verification-1.1.0.md) |
 | 0.2.5 Debian 13生命周期与暂停范围 | [候选验收](archive/release-candidate-0.2.5.md) |
 | 0.2.5 Debian 13双机生命周期、长链接与重连实测 | [Debian 13实机验收](archive/vps-lifecycle-0.2.5-2026-10-01.md) |
 | 0.2.4历史公开包、固定方向完整生命周期及重连限制 | [0.2.4实机验收](archive/vps-lifecycle-0.2.4-2026-10-01.md) |
