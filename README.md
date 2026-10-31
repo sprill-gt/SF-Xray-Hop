@@ -29,4 +29,4 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v0.2.1
 
 [命令与菜单](docs/cli.md) · [双机操作](docs/two-node-guide.md) · [文档导航](docs/README.md) · [0.2.10 RC 验证边界](docs/release-candidate-0.2.10.md)
 
-[变更记录](CHANGELOG.md) · [安全报告](SECURITY.md) · [GPL-3.0 许可证](LICENSE)。历史部署记录在 [docs/archive](docs/archive)，不代表本版已经部署或通过生产验收。
+[变更记录](CHANGELOG.md) · [安全报告](SECURITY.md) · [GPL-3.0-only 许可证](LICENSE)。历史部署记录在 [docs/archive](docs/archive)，不代表本版已经部署或通过生产验收。
