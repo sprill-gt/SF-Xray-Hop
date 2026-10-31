@@ -66,6 +66,15 @@ jobs:
             sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash "tests/$test.sh"
           done
           sudo python3 tests/bootstrap.py
+      - name: Real temporary systemd privilege and private-network gates
+        run: |
+          mkdir -p .cache/legacy-core
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip -o .cache/legacy-core/core.zip
+          printf '%s  %s\n' '23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae' '.cache/legacy-core/core.zip' | sha256sum -c -
+          unzip -p .cache/legacy-core/core.zip xray > .cache/legacy-core/xray
+          chmod 755 .cache/legacy-core/xray
+          sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash tests/probe-privileges.sh
+          sudo bash tests/core-safety-live.sh "$PWD/.cache/ci-core/xray" "$PWD/.cache/legacy-core/xray"
       - name: Real loopback protocol and routing regression
         run: python3 tests/protocol_lab.py --core .cache/ci-core/xray --jq /usr/bin/jq --openssl /usr/bin/openssl --curl /usr/bin/curl
       - name: Distribution integrity
