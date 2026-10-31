@@ -99,12 +99,15 @@ sf_parse_reality_keys() {
 sf_curl_download() { curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 180 --retry 2 "$1" -o "$2" 2>/dev/null; }
 sf_release_metadata() {
     local channel=$1 version=$2 dest=$3
-    sf_project_release XTLS/Xray-core "$channel" "$version" "$dest"
+    [[ -z $version ]] || sf_core_require_version "$version" || return
+    sf_project_release XTLS/Xray-core "$channel" "$version" "$dest" || return
+    sf_core_require_version "$(jq -r '.tag_name|ltrimstr("v")' "$dest")"
 }
 sf_project_release() (
     local repo=$1 channel=$2 version=$3 dest=$4 page=1 count work
     [[ $repo == XTLS/Xray-core || $repo == sprill-gt/SF-Xray-Hop ]] || return 2
-    [[ $channel == pre || $channel == stable || $channel == pinned ]] || return 2
+    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]]
+    [[ $channel != auto || $repo == XTLS/Xray-core ]] || return 2
     work=$(mktemp -d "${dest}.pages.XXXXXXXX") || return
     trap 'rm -rf -- "$work"' EXIT
     if [[ -n $version ]]; then
@@ -113,7 +116,7 @@ sf_project_release() (
         sf_curl_download "https://api.github.com/repos/$repo/releases/tags/v$version" "$dest" || return
         jq -e --arg tag "v$version" --arg channel "$channel" '.draft==false and .tag_name==$tag and
           (.prerelease|type)=="boolean" and (.published_at|type)=="string" and
-          ($channel=="pinned" or ($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false))' "$dest" >/dev/null || return
+          ($channel=="auto" or $channel=="pinned" or ($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false))' "$dest" >/dev/null || return
     else
         [[ $channel != pinned ]] || return 2
         : > "$work/releases.jsonl"
@@ -127,9 +130,9 @@ sf_project_release() (
         done
         ((page<=100)) || { sf_fail 'Release 分页超过安全上限，未推定最新版本。'; return 1; }
         jq -s --arg channel "$channel" '[.[]|select(.draft==false and (.published_at|type)=="string" and
-          (($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false)) and
+          (($channel=="auto" and (.prerelease|type)=="boolean") or ($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false)) and
           (.tag_name|test("^v[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$")))]|
-          unique_by(.id)|sort_by(.tag_name|ltrimstr("v")|split(".")|map(tonumber))|last' "$work/releases.jsonl" > "$dest" || return
+          unique_by(.id)|sort_by([(.tag_name|ltrimstr("v")|split(".")|map(tonumber)), (if .prerelease then 0 else 1 end)])|last' "$work/releases.jsonl" > "$dest" || return
         jq -e 'type=="object"' "$dest" >/dev/null || { sf_fail "没有符合 $channel 频道的已发布版本；未退回其他频道。"; return 1; }
     fi
 )
@@ -138,10 +141,27 @@ sf_version_direction() {
       ($old|split(".")|map(tonumber)) as $a | ($new|split(".")|map(tonumber)) as $b |
       if $b>$a then "upgrade" elif $b<$a then "downgrade" else "same" end'
 }
+sf_core_require_version() {
+    local version=${1#v} i
+    local -a requested minimum
+    [[ $version =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]] || {
+        sf_usage_error "核心版本格式应为数字版本号，例如 $SFXH_MIN_CORE。"; return 2;
+    }
+    # Installation can validate an explicit version before jq is installed.
+    IFS=. read -r -a requested <<< "$version"
+    IFS=. read -r -a minimum <<< "$SFXH_MIN_CORE"
+    for i in 0 1 2; do
+        ((10#${requested[i]} > 10#${minimum[i]})) && return 0
+        if ((10#${requested[i]} < 10#${minimum[i]})); then
+            sf_usage_error "最低支持 Xray $SFXH_MIN_CORE，不能选择 $version。"; return 2
+        fi
+    done
+    return 0
+}
 sf_core_download() {
     local metadata=$1 work=$2 mode=${3:-inspect} prior_archive=${4:-} consent=${5:-} url dgst_url expected actual checksum version id target
     version=$(jq -r '.tag_name|ltrimstr("v")' "$metadata")
-    [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 2
+    sf_core_require_version "$version" || return
     url=$(jq -er '.assets[]|select(.name=="Xray-linux-64.zip")|.browser_download_url' "$metadata") || return
     dgst_url=$(jq -er '.assets[]|select(.name=="Xray-linux-64.zip.dgst")|.browser_download_url' "$metadata") || return
     [[ $url == "https://github.com/XTLS/Xray-core/releases/download/v$version/Xray-linux-64.zip" && $dgst_url == "$url.dgst" ]] || return 2

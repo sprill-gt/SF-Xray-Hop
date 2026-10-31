@@ -50,16 +50,17 @@ sf_build_initial_state() {
     sf_rtt_values "$work/base.json" "$rtt" "$work/state.json"
 }
 sf_install() (
-    local address='' port=443 rtt=0 target='' name='' channel=pre version='' work core binary domain
+    local address='' port=443 rtt=0 target='' name='' channel=auto version='' work core binary domain
     while (($#)); do
         [[ $# -ge 2 ]] || { sf_usage_error '安装参数缺少值。'; return 2; }
         case "$1" in
             --address) address=$2 ;; --port) port=$2 ;; --rtt) rtt=$2 ;; --target) target=$2 ;;
-            --name) name=$2 ;; --channel) channel=$2 ;; --version) version=${2#v}; channel=pinned ;;
+            --name) name=$2 ;; --channel) channel=$2 ;; --version) sf_core_require_version "$2" || return; version=${2#v}; channel=pinned ;;
             *) sf_usage_error "未知安装选项：$1"; return 2 ;;
         esac
         shift 2
     done
+    if [[ -n $version ]]; then sf_core_require_version "$version" || return; channel=pinned; fi
     if sf_installed; then sf_msg '本机已安装；身份、名称、用途、下游和更新频道保持不变。运行 sfxh 管理。'; return 0; fi
     sf_msg '步骤 1/3：检查系统与安装环境'
     sf_platform_check && sf_existing_check || return
@@ -88,7 +89,7 @@ sf_install() (
     if [[ -z $target ]]; then
         target=$(sf_target_default) || return
     fi
-    [[ $channel == pre || $channel == stable || $channel == pinned ]] || return 2
+    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
     [[ $channel != pinned || -n $version ]] || { sf_usage_error 'pinned 频道需要 --version。'; return 2; }
     if [[ -z $address ]]; then
         address=$(sf_detect_address) || address=''
@@ -107,6 +108,7 @@ sf_install() (
     trap 'sf_remove_tree "$work"' EXIT
     sf_msg '步骤 2/3：下载核心、生成身份并检测伪装目标'
     sf_release_metadata "$channel" "$version" "$work/release.json" || { sf_fail '无法读取官方 Release。'; return 1; }
+    if [[ $channel == auto ]]; then channel=$(jq -r 'if .prerelease then "pre" else "stable" end' "$work/release.json") || return; fi
     core=$(sf_core_download "$work/release.json" "$work" initialize) || return
     binary=$(sf_core_path "$core") || return
     version=$(jq -r '.tag_name|ltrimstr("v")' "$work/release.json")

@@ -91,31 +91,39 @@ sf_set_name() (
     jq --arg name "$1" '.node.name=$name' "$SF_EDIT_STATE" > "$SF_EDIT_WORK/state.json" && sf_tx_apply "$SF_EDIT_WORK/state.json" '修改节点名称' online metadata
 )
 sf_core_check() (
-    local work state channel version
+    local work state
     state=$(sf_state) || return; work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"' EXIT
-    channel=$(jq -r .core.channel "$state"); version=$(jq -r '.core.pinnedVersion // ""' "$state")
-    sf_release_metadata "$channel" "$version" "$work/release.json" || { sf_fail '读取 Release 失败。'; return 1; }
-    sf_msg "当前：$(jq -r .core.version "$state")；频道：$channel；候选：$(jq -r .tag_name "$work/release.json")"
+    sf_release_metadata auto '' "$work/release.json" || return
+    sf_msg "当前：$(jq -r .core.version "$state")；当前选择：$(jq -r .core.channel "$state")；最新核心（正式版 / Pre 比较）：$(jq -r .tag_name "$work/release.json")"
 )
+sf_core_select() {
+    [[ $# == 1 || ($# == 2 && $2 == --yes) ]] || { sf_usage_error '用法：sfxh core select 版本号 [--yes]'; return 2; }
+    sf_core_require_version "$1" || return
+    sf_core_update --version "$@"
+}
 sf_core_update() (
-    local channel='' version='' core work consent='' old direction archive=''
+    local channel=auto version='' core work consent='' old direction archive=''
     while (($#)); do
         if [[ $1 == --yes ]]; then consent=--yes; shift; continue; fi
         [[ $# -ge 2 ]] || return 2
-        case "$1" in --channel) channel=$2 ;; --version) version=${2#v}; channel=pinned ;; *) return 2 ;; esac
+        case "$1" in --channel) channel=$2 ;; --version) sf_core_require_version "$2" || return; version=${2#v} ;; *) return 2 ;; esac
         shift 2
     done
+    [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
+    [[ -z $version ]] || channel=pinned
     sf_edit_begin || return; work=$SF_EDIT_WORK
     trap 'sf_remove_tree "$work"' EXIT
-    [[ -n $channel ]] || channel=$(jq -r .core.channel "$SF_EDIT_STATE")
-    [[ $channel == pre || $channel == stable || $channel == pinned ]] || return 2
     if [[ $channel == pinned && -z $version ]]; then version=$(jq -r '.core.pinnedVersion // .core.version' "$SF_EDIT_STATE"); fi
-    sf_release_metadata "$channel" "$version" "$work/release.json" || { sf_fail '读取 Release 失败。'; return 1; }
+    [[ -z $version ]] || sf_core_require_version "$version" || return
+    sf_release_metadata "$channel" "$version" "$work/release.json" || return
+    if [[ $channel == auto ]]; then channel=$(jq -r 'if .prerelease then "pre" else "stable" end' "$work/release.json") || return; fi
     version=$(jq -r '.tag_name|ltrimstr("v")' "$work/release.json")
+    sf_core_require_version "$version" || return
     old=$(jq -r .core.version "$SF_EDIT_STATE"); direction=$(sf_version_direction "$old" "$version") || return
-    sf_msg "核心：$old → $version；目标频道：$channel；方向：$direction"
-    if [[ $direction == downgrade && $consent != --yes ]]; then sf_confirm '目标核心版本更低。确认验证并降级？' || return; fi
+    sf_msg "核心版本：$old → $version；选择方式：$channel"
+    # Naming an exact version is already an explicit choice of that version.
+    if [[ $direction == downgrade && $channel != pinned && $consent != --yes ]]; then sf_confirm '该频道的最新版本低于当前版本。确认切换？' || return; fi
     if [[ $direction == same ]]; then archive=$(jq -r '.archiveSha256//""' "$SFXH_VAR/cores/$(jq -r .core.id "$SF_EDIT_STATE")/metadata.json" 2>/dev/null) || archive=''; fi
     core=$(sf_core_download "$work/release.json" "$work" inspect "$archive" "$consent") || return
     [[ ! -f $work/archive-change-confirmed ]] || consent=--yes
@@ -123,7 +131,7 @@ sf_core_update() (
         sf_confirm '相同版本标签的二进制摘要发生变化。确认验证并替换此核心？' || return
     fi
     jq --arg core "$core" --arg version "$version" --arg channel "$channel" '.core={id:$core,version:$version,channel:$channel,pinnedVersion:(if $channel=="pinned" then $version else null end)}' "$SF_EDIT_STATE" > "$work/state.json" || return
-    sf_tx_apply "$work/state.json" '更新核心'
+    sf_tx_apply "$work/state.json" '选择核心版本'
 )
 sf_core_rollback() (
     local id='' entry work version i=0 mode=online previous=0 current
@@ -131,12 +139,24 @@ sf_core_rollback() (
         case "$1" in --offline) mode=offline ;; --previous) previous=1 ;; *) [[ -z $id ]] || return 2; id=$1 ;; esac
         shift
     done
+    if [[ $id =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        [[ $mode == online && $previous == 0 ]] || { sf_usage_error '按版本号选择使用在线校验；离线恢复请指定完整本地归档 ID。'; return 2; }
+        sf_core_select "$id"; return $?
+    fi
+    if [[ -n $id ]]; then
+        [[ $id =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{16}$ ]] || { sf_usage_error '请输入版本号或完整核心归档 ID。'; return 2; }
+        sf_core_require_version "${id%-*}" || return
+    fi
     local -a ids=() labels=()
     sf_edit_begin || return; work=$SF_EDIT_WORK
     trap 'sf_remove_tree "$work"' EXIT
-    while IFS= read -r entry; do ids+=("$entry"); ((i+=1)); labels+=("$i. $entry"); done < <(
+    while IFS= read -r entry; do
+        [[ $entry =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{16}$ ]] || continue
+        sf_core_require_version "${entry%-*}" >/dev/null 2>&1 || continue
+        ids+=("$entry"); ((i+=1)); labels+=("$i. $entry")
+    done < <(
       find "$SFXH_VAR/cores" -mindepth 2 -maxdepth 2 -name metadata.json -exec jq -r 'select(.verified==true)|.id' {} \; | sort -Vr)
-    ((${#ids[@]})) || { sf_fail '没有验证成功的归档核心。'; return 1; }
+    ((${#ids[@]})) || { sf_fail "没有不低于 $SFXH_MIN_CORE 的已验证归档核心。"; return 1; }
     if ((previous)); then
         [[ -z $id ]] || return 2
         current=$(jq -r .core.id "$SF_EDIT_STATE")
@@ -154,6 +174,7 @@ sf_core_rollback() (
     [[ " ${ids[*]} " == *" $id "* ]] || { sf_usage_error '请指定已验证的完整核心归档 ID。'; return 2; }
     sf_core_verify_archive "$id" || return
     version=$(jq -r .version "$SFXH_VAR/cores/$id/metadata.json")
+    sf_core_require_version "$version" || return
     jq --arg id "$id" --arg version "$version" '.core={id:$id,version:$version,channel:"pinned",pinnedVersion:$version}' "$SF_EDIT_STATE" > "$work/state.json" && sf_tx_apply "$work/state.json" '回滚核心' "$mode"
 )
 sf_status() {

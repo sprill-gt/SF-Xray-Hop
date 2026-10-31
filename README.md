@@ -6,7 +6,9 @@
 
 默认一键直连，需要时再搭建两台 VPS 的链式代理。Bash + jq + 原生 Xray-core，一个正式服务、一个公网入口，两种独立身份。
 
-默认采用 Xray 官方 **Pre**、0-RTT、XHTTP auto、Chrome、TCP 443 和 `archive.archlinux.org`。26.9.9 是已验证协议基线；不是永久安装版本。更换下游保持入口连接参数，新导出链接的名称会反映新出口。
+默认比较 Xray 官方 **正式版与 Pre，选择数值更大的版本**、0-RTT、XHTTP auto、Chrome、TCP 443 和 `archive.archlinux.org`。26.9.9 是已验证协议基线；不是永久安装版本。更换下游保持入口连接参数，新导出链接的名称会反映新出口。
+
+核心默认安装、检查及更新都会比较正式版与 Pre，按数字版本取较大者，同号优先正式版；手动选版本用 `sudo sfxh core select 26.9.9`，最低 26.9.9。菜单9更新最新核心，10输入版本号，11恢复历史核心，12卸载。[命令说明](docs/cli.md)。
 
 当前源码适配 **Debian 12/13 和 Ubuntu 24.04.3 LTS**，amd64，systemd。Debian 12 已恢复平台检测，但尚待实机安装、服务和网络验收；旧版 0.2.6 RC 仍拒绝 Debian 12，请使用下方 0.2.7 命令。Ubuntu 22.04 不在支持范围。[系统支持与迁移](docs/platforms.md) · [验收记录](docs/testing.md)。
 

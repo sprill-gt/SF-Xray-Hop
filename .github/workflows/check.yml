@@ -27,6 +27,7 @@ jobs:
           shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
           python3 tests/bootstrap-command.py
           bash tests/bootstrap-dependencies.sh
+          bash tests/releases-auto.sh
       - name: Isolated logic and filesystem regression (services and network mocked)
         run: |
           for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version; do
