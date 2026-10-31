@@ -53,6 +53,12 @@ cp "$binary" "$SFXH_VAR/cores/$id/xray" && chmod 755 "$SFXH_VAR/cores/$id/xray" 
 jq -n --arg id "$id" --arg hash "$(sf_hash "$binary")" '{id:$id,version:"26.9.9",sha256:$hash,verified:false}' > "$SFXH_VAR/cores/$id/metadata.json"
 require sf_build_initial_state "$binary" "$work" '事务测试' example.com 443 www.example.com "$id" 26.9.9 pre 0
 require sf_tx_apply "$work/state.json" test-initial
+before_minimum=$(sf_generation)
+jq '.core.id="v26.9.8-0123456789abcdef"|.core.version="26.9.8"' "$work/state.json" > "$work/too-old.json"
+reject sf_tx_apply "$work/too-old.json" below-minimum offline
+grep -q '最低支持 Xray 26.9.9' "$work/rejected.out" || exit 1
+[[ $(sf_generation) == "$before_minimum" ]] || exit 1
+pass 'transaction rejects a below-minimum core before archive lookup or changing the active generation'
 old=$(sf_generation) || exit 1
 require sf_generation_integrity "$old"
 require jq -e '.verified==true' "$SFXH_VAR/cores/$id/metadata.json"

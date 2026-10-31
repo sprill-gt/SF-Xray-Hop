@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 SFXH_VERSION=0.2.7
-SFXH_BASELINE=26.9.9
+SFXH_MIN_CORE=26.9.9
 sf_paths() {
     local prefix=''
     if [[ ${SFXH_TEST_MODE:-0} == 1 ]]; then prefix=${SFXH_TEST_ROOT:?test root required}; fi

@@ -69,7 +69,7 @@ sf_setup() {
     fi
     local state
     sf_msg 'SF-Xray-Hop 一键安装（暂时性实验产物）'
-    sf_msg '默认：单机直连 / TCP 443 / 0-RTT / archive.archlinux.org / Xray 官方 Pre。'
+    sf_msg '默认：单机直连 / TCP 443 / 0-RTT / archive.archlinux.org / Xray 正式版与 Pre 中的最新版本。'
     sf_install || return
     sf_tty || return 0
     state=$(sf_state) || return
@@ -196,14 +196,18 @@ sf_sni_menu() {
         2) sf_set_target auto ;; 0) return 0 ;;
     esac
 }
+sf_core_select_menu() {
+    sf_ask_text "输入目标版本（最低 $SFXH_MIN_CORE）" '' || return
+    sf_core_select "$SF_REPLY"
+}
 sf_core_menu() {
     while :; do
-        sf_ask_choice 'Xray 核心管理（不改变管理脚本）' '1. 按当前频道检查并更新' '2. 切换 Pre／正式版' '3. 回滚上一可用核心' '4. 固定指定版本（高级）' '0. 返回' || return
+        sf_msg "核心最低版本：$SFXH_MIN_CORE；默认更新跟随最新核心（正式版 / Pre 取较大版本）。"
+        sf_ask_choice 'Xray 核心版本' '1. 更新到最新核心（比较正式版与 Pre，默认）' '2. 自主选择版本（直接输入版本号）' '3. 恢复上一可用核心' '4. 选择本地历史核心' '5. 更新到最新正式版（高级）' '0. 返回' || return
         case "$SF_REPLY" in
             1) sf_core_update ;;
-            2) sf_ask_choice '核心频道' '1. Pre：仅预发布' '2. Stable：仅正式发布' '0. 返回' || return
-               case "$SF_REPLY" in 1) sf_core_update --channel pre ;; 2) sf_core_update --channel stable ;; 0) : ;; esac ;;
-            3) sf_core_rollback --previous ;; 4) sf_ask_text '固定版本，如26.9.9' '' && sf_core_update --version "$SF_REPLY" ;; 0) return 0 ;;
+            2) sf_core_select_menu ;;
+            3) sf_core_rollback --previous ;; 4) sf_core_rollback ;; 5) sf_core_update --channel stable ;; 0) return 0 ;;
         esac
         sf_action_done "$?"
     done
@@ -230,9 +234,15 @@ sf_menu() {
             sf_ask_choice 'SF-Xray-Hop' '1. 安装本机' '2. 链式连接引导' '3. 检查安装环境' '0. 退出' --default=0 || return
             case "$SF_REPLY" in 1) sf_setup ;; 2) sf_guide ;; 3) sf_platform_check ;; 0) return 0 ;; esac
         else
-            sf_ask_choice '主菜单' '1. 启动 / 管理链式代理引导' '2. Xray 核心管理（更新 / 正式版 / 回滚）' '3. 显示直连代理分享链接' '4. 显示链式代理分享链接' '5. 节点设置（名称 / 角色 / 关联机器）' '6. 修改 SNI' '7. RTT 设置' '8. 更新 SF-Xray-Hop 脚本' '9. 完整卸载' '0. 退出' --default=0 || return
+            sf_ask_choice '主菜单' \
+                '1. 启动 / 管理链式代理引导' '2. Xray 核心版本（最新版本 / 自主选择 / 历史恢复）' \
+                '3. 显示直连代理分享链接' '4. 显示链式代理分享链接' '5. 节点设置（名称 / 角色 / 关联机器）' \
+                '6. 修改 SNI' '7. RTT 设置' '8. 更新 SF-Xray-Hop 脚本' \
+                '9. Xray 更新到最新核心（正式版 / Pre 取较大版本）' '10. Xray 自主选择版本（输入版本号）' '11. Xray 恢复上一可用核心' \
+                '12. 完整卸载' '0. 退出' --default=0 || return
             case "$SF_REPLY" in 1) sf_guide ;; 2) sf_core_menu ;; 3) sf_view direct ;; 4) sf_chain_view_menu ;; 5) sf_node_menu ;; 6) sf_sni_menu ;; 7) sf_rtt_menu ;; 8) sf_self_menu ;;
-                9) sf_uninstall; if ! sf_installed; then return 0; fi ;; 0) return 0 ;; esac
+                9) sf_core_update ;; 10) sf_core_select_menu ;; 11) sf_core_rollback --previous ;;
+                12) sf_uninstall; if ! sf_installed; then return 0; fi ;; 0) return 0 ;; esac
         fi
         sf_action_done "$?"
     done
@@ -261,9 +271,12 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   rtt downstream 0|1            仅修改到下游的 RTT 偏好
   target [auto|set 域名]         查看／修改 SNI 与 REALITY 目标
   fingerprint chrome|firefox|safari
-  core check                    当前频道候选
-  core update [--channel pre|stable|pinned] [--version 版本] [--yes]
-  core rollback [完整归档ID|--previous] [--offline]
+  core check                    检查官方最新核心（正式版 / Pre 取较大版本）
+  core update [--channel auto|pre|stable|pinned] [--version 版本] [--yes]
+                                默认更新到最新核心（正式版 / Pre 取较大版本），不受上次版本选择影响
+  core select 版本号 [--yes]     自主选择版本；最低 26.9.9，也可用 core 版本号
+  core rollback [版本号|完整归档ID|--previous] [--offline]
+                                版本号为在线选择；离线仅限已验证本地归档
   core prune                    保留至少5个已验证核心
   self check / update [--version 版本 --allow-pre] [--yes]
   self rollback [--yes]          验证当前状态后回退管理脚本
@@ -305,7 +318,9 @@ sf_main() {
         target) if (($#==0)); then sf_set_target; elif [[ $# == 1 && $1 == auto ]]; then sf_set_target auto; elif [[ $# == 2 && $1 == set ]]; then sf_set_target "$2"; else return 2; fi ;;
         core) sub=${1:-}; (($#==0)) || shift
               if [[ $sub == check || $sub == prune ]]; then [[ $# == 0 ]] || return 2; fi
-              case "$sub" in check) [[ $# == 0 ]] && sf_core_check ;; update) sf_core_update "$@" ;; rollback) sf_core_rollback "$@" ;; prune) [[ $# == 0 ]] && sf_core_prune ;; *) return 2 ;; esac ;;
+              case "$sub" in check) [[ $# == 0 ]] && sf_core_check ;; update) sf_core_update "$@" ;; select) sf_core_select "$@" ;;
+                  rollback) sf_core_rollback "$@" ;; prune) [[ $# == 0 ]] && sf_core_prune ;;
+                  [0-9]*|v[0-9]*) sf_core_select "$sub" "$@" ;; *) return 2 ;; esac ;;
         self) sub=${1:-}; (($#==0)) || shift
               case "$sub" in check) sf_self_check "$@" ;; update) sf_self_update "$@" ;; rollback) sf_self_rollback "$@" ;; *) return 2 ;; esac ;;
         logs) sf_logs ;; uninstall) sf_uninstall "$@" ;; *) sf_usage_error '未知命令，请运行 sfxh help。' ;;

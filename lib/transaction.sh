@@ -110,6 +110,7 @@ sf_tx_apply() (
     fi
     sf_validate_state "$candidate" || return
     core_id=$(jq -r .core.id "$candidate")
+    sf_core_require_version "${core_id%-*}" || return
     sf_core_verify_archive "$core_id" || return
     binary=$(sf_core_path "$core_id") || return
     client_binary=$binary

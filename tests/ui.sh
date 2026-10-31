@@ -16,6 +16,7 @@ sf_tty() { return 0; }
 sf_status() { sf_msg 'SF-Xray-Hop 测试机器'; }
 sf_pause() { :; }
 sf_installed() { return 0; }
+case $(uname -s) in MINGW*|MSYS*) sf_lock() { :; } ;; esac # Windows control-flow fixture only.
 sf_state() { printf '%s/state.json\n' "$TEST_WORK"; }
 sf_generation() { printf '%s/generations/test\n' "$SFXH_ETC"; }
 sf_health_current() { printf 'health\n' >> "$TEST_WORK/calls"; }
@@ -46,6 +47,69 @@ pass 'main menu empty Enter exits without mutations'
 INPUT
 [[ $(grep -c '请输入菜单中显示的数字' "$TEST_WORK/invalid.txt") == 2 ]]
 pass 'explicit RTT change has no default; invalid input stays at current step'
+
+(
+    sf_core_menu() { printf 'core-menu\n' >> "$TEST_WORK/main-core-calls"; }
+    sf_core_update() { printf 'update:%s\n' "$*" >> "$TEST_WORK/main-core-calls"; }
+    sf_core_rollback() { printf 'history:%s\n' "$*" >> "$TEST_WORK/main-core-calls"; }
+    sf_uninstall() { printf 'uninstall\n' >> "$TEST_WORK/main-core-calls"; return 130; }
+    # Failed version input and cancellation must return to the main panel.
+    rc=0; sf_menu <<'INPUT' || rc=$?
+9
+10
+26.9.8
+10
+v26.9.9
+10
+0
+11
+2
+12
+0
+INPUT
+    [[ $rc == 0 ]]
+) > "$TEST_WORK/main-core-menu.txt" 2>&1
+printf '%s\n' 'update:' 'update:--version v26.9.9' 'history:--previous' 'core-menu' 'uninstall' > "$TEST_WORK/main-core-expected"
+cmp "$TEST_WORK/main-core-calls" "$TEST_WORK/main-core-expected"
+grep -q '最低支持 Xray 26.9.9' "$TEST_WORK/main-core-menu.txt"
+pass 'main panel directly dispatches latest, version selection and previous-core recovery; invalid or cancelled versions never update'
+
+(
+    sf_core_update() { printf 'update:%s\n' "$*" >> "$TEST_WORK/core-calls"; }
+    sf_core_rollback() { printf 'history:%s\n' "$*" >> "$TEST_WORK/core-calls"; }
+    # The real entry point has no errexit; a rejected choice stays in the menu.
+    rc=0; sf_core_menu <<'INPUT' || rc=$?
+1
+2
+26.9.8
+2
+26.9.9
+3
+4
+5
+0
+INPUT
+    [[ $rc == 0 ]]
+) > "$TEST_WORK/core-menu.txt" 2>&1
+printf '%s\n' 'update:' 'update:--version 26.9.9' 'history:--previous' 'history:' 'update:--channel stable' > "$TEST_WORK/core-expected"
+cmp "$TEST_WORK/core-calls" "$TEST_WORK/core-expected"
+grep -q '最低支持 Xray 26.9.9' "$TEST_WORK/core-menu.txt"
+pass 'core menu defaults to newest stable-or-Pre, accepts version numbers and rejects unsupported choices without applying them'
+(
+    sf_core_update() { printf 'update:%s\n' "$*" >> "$TEST_WORK/core-cli"; }
+    sf_main core select 26.9.9
+    sf_main core v26.9.9
+    sf_main core rollback 26.9.9
+    sf_main core select 26.9.9 --yes
+    for command in 'core select' 'core select 26.9.9 extra' 'core select 26.9.8 --yes' 'core 26.9.8' 'core rollback 26.9.9 --offline'; do
+        read -r -a args <<< "$command"
+        rc=0; sf_main "${args[@]}" || rc=$?
+        [[ $rc == 2 ]]
+    done
+) > "$TEST_WORK/core-cli.txt" 2>&1
+printf '%s\n' 'update:--version 26.9.9' 'update:--version v26.9.9' 'update:--version 26.9.9' 'update:--version 26.9.9 --yes' > "$TEST_WORK/core-cli-expected"
+cmp "$TEST_WORK/core-cli" "$TEST_WORK/core-cli-expected"
+pass 'version selection CLI and compatibility aliases share validation and reject excess arguments'
 
 sf_guide > "$TEST_WORK/entry.txt" 2>&1 <<'INPUT'
 1
