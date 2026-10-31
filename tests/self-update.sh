@@ -40,6 +40,8 @@ pass 'locked manager publication cleans abandoned staging without growing histor
 ln -s "$SFXH_INSTALL/sf-xray-hop" "$SFXH_BIN/sfxh"
 ln -s "$SFXH_INSTALL/sf-xray-hop" "$SFXH_BIN/sf-xray-hop"
 sf_manager_copy "$SFXH_CODE" "$work/pack/SF-Xray-Hop"
+sed -i 's/^SFXH_VERSION=.*/SFXH_VERSION=1.1.0/' "$work/pack/SF-Xray-Hop/lib/common.sh"
+sed -i 's/^SFXH_SOURCE_VERSION=.*/SFXH_SOURCE_VERSION=1.1.0/' "$work/pack/SF-Xray-Hop/install.sh"
 tar -czf "$work/package.tar.gz" -C "$work/pack" SF-Xray-Hop
 sha=$(sf_hash "$work/package.tar.gz")
 commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

@@ -5,7 +5,8 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-paths = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
+GIT = ['git', '-c', f'safe.directory={ROOT}']
+paths = subprocess.check_output([*GIT, 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
 allowed_dns = {'1.1.1.1', '8.8.8.8', '9.9.9.9'}
 allowed_uuid = {'00000000-0000-4000-8000-000000000000', '01234567-89ab-cdef-0123-456789abcdef'}
 failures = []
@@ -34,7 +35,7 @@ for name in filter(None, paths):
         if re.search(r'[A-Za-z]:[\\/]Users[\\/][A-Za-z0-9_. -]+[\\/]', line):
             failures.append(f'{name}:{number}: personal Windows profile path')
 # Check the history available in this checkout; CI/release use fetch-depth: 0.
-emails = subprocess.check_output(['git', 'log', 'HEAD', '--format=%ae%n%ce'], cwd=ROOT).decode().splitlines()
+emails = subprocess.check_output([*GIT, 'log', 'HEAD', '--format=%ae%n%ce'], cwd=ROOT).decode().splitlines()
 for email in emails:
     if not (email.endswith('@users.noreply.github.com') or email == 'noreply@github.com'):
         failures.append('HEAD history contains a non-noreply author/committer; value withheld')
