@@ -75,6 +75,7 @@ jobs:
           chmod 755 .cache/legacy-core/xray
           sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash tests/probe-privileges.sh
           sudo bash tests/core-safety-live.sh "$PWD/.cache/ci-core/xray" "$PWD/.cache/legacy-core/xray"
+          sudo env GITHUB_ACTIONS=true SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash tests/runtime-sandbox.sh
       - name: Real loopback protocol and routing regression
         run: python3 tests/protocol_lab.py --core .cache/ci-core/xray --jq /usr/bin/jq --openssl /usr/bin/openssl --curl /usr/bin/curl
       - name: Distribution integrity
