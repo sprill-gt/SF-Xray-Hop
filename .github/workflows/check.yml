@@ -5,6 +5,26 @@ on:
 permissions:
   contents: read
 jobs:
+  debian12-bootstrap:
+    runs-on: ubuntu-24.04
+    container: debian:12
+    timeout-minutes: 10
+    steps:
+      - name: Debian 12 fixture dependencies
+        run: apt-get -o APT::Update::Error-Mode=any update && apt-get install -y --no-install-recommends bash ca-certificates curl git python3 jq shellcheck
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Bookworm bootstrap and release resolver (no systemd or VPS acceptance)
+        shell: bash
+        run: |
+          python3 tests/check.py
+          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
+          python3 tests/bootstrap-command.py
+          bash tests/bootstrap-dependencies.sh
+          bash tests/releases-auto.sh
+          bash tests/core-r2.sh
+          python3 tests/bootstrap.py
   regression:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

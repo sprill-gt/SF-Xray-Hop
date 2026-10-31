@@ -70,4 +70,4 @@ sf_install > "$work/stable-install.out" 2>&1
 [[ $(tail -n 1 "$work/release-calls") == auto ]]
 jq -e '.core.channel=="stable" and .core.pinnedVersion==null' "$work/installed.json" >/dev/null
 printf 'PASS automatic install records stable when stable wins the comparison\n'
-printf 'TOTAL 6 install control-flow checks (deployment and network mocked)\n' 
+printf 'TOTAL 6 install control-flow checks (deployment and network mocked)\n'
