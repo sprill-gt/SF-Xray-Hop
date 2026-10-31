@@ -23,6 +23,7 @@ jobs:
           python3 tests/bootstrap-command.py
           bash tests/bootstrap-dependencies.sh
           bash tests/releases-auto.sh
+          bash tests/asset-resume.sh
           bash tests/core-r2.sh
           python3 tests/bootstrap.py
   regression:
@@ -48,6 +49,7 @@ jobs:
           python3 tests/bootstrap-command.py
           bash tests/bootstrap-dependencies.sh
           bash tests/releases-auto.sh
+          bash tests/asset-resume.sh
       - name: Isolated logic and filesystem regression (services and network mocked)
         run: |
           for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version; do

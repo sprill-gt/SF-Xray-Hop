@@ -26,7 +26,7 @@ command() {
     if [[ $1 == -v && $2 == jq ]]; then [[ $TEST_HAS_JQ == 1 ]]; else builtin command "$@"; fi
 }
 sf_boot_fetch() { return 23; }
-SFXH_SCRIPT_VERSION=0.2.7
+SFXH_SCRIPT_VERSION=0.2.8
 run_case() {
     local expected=$1 rc=0
     : > "$TEST_APT_LOG"

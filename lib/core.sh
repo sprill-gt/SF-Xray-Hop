@@ -96,7 +96,89 @@ sf_parse_reality_keys() {
       jq -Rs 'split("\n")|map(select(length>0))|select(length==2 and all(.[];test("^[A-Za-z0-9_-]{43}$")))|{privateKey:.[0],password:.[1]}' > "$2" 2>/dev/null || return
     [[ -s $2 ]] || { sf_fail '无法识别 x25519 输出。'; return 1; }
 }
-sf_curl_download() { curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 180 --retry 2 "$1" -o "$2" 2>/dev/null; }
+sf_curl_download() {
+    if [[ $1 == https://github.com/XTLS/Xray-core/releases/download/*/Xray-linux-64.zip ]]; then
+        sf_core_asset "$1" "$2"
+    else
+        curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 180 --retry 2 "$1" -o "$2" 2>/dev/null
+    fi
+}
+sf_core_asset() (
+    local url=$1 dest=$2 attempt pid='' rc bytes
+    trap '[[ -z $pid ]] || { kill "$pid" 2>/dev/null || :; wait "$pid" 2>/dev/null || :; }; rm -f -- "$dest.error"' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM HUP
+    for attempt in {1..5}; do
+        bytes=0; [[ ! -f $dest ]] || bytes=$(wc -c < "$dest")
+        sf_msg "核心下载：第 $attempt/5 次，从 $bytes 字节继续（单次最多 180 秒）……"
+        curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+          --connect-timeout 10 --max-time 180 --speed-time 30 --speed-limit 1024 --max-filesize 134217728 \
+          --continue-at - "$url" -o "$dest" 2> "$dest.error" &
+        pid=$!
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 5
+            [[ ! -f $dest ]] || sf_msg "核心下载：已接收 $(wc -c < "$dest") 字节。"
+        done
+        rc=0; wait "$pid" || rc=$?; pid=''
+        ((rc!=0)) || return 0
+        # Only transient transfer failures are resumable. HTTP, unsupported Range,
+        # TLS validation and size errors fail without executing an unverified file.
+        case "$rc" in
+            18|28|52|55|56) sf_msg "核心传输中断（curl $rc），保留已下载内容并尝试续传。" ;;
+            *) sf_fail "核心下载失败（curl $rc），未解压或执行。"; return 1 ;;
+        esac
+    done
+    sf_fail '核心下载重试已达上限，未解压或执行。'
+)
+sf_core_api() {
+    local url=$1 dest=$2 code rc=0
+    [[ $url == https://api.github.com/repos/XTLS/Xray-core/* ]] || return 2
+    code=$(curl --silent --show-error --location --compressed --proto '=https' --proto-redir '=https' \
+      --connect-timeout 10 --max-time 30 --retry 1 --retry-max-time 40 --max-filesize 2097152 \
+      --output "$dest" --write-out '%{http_code}' "$url" 2> "$dest.error") || rc=$?
+    rm -f -- "$dest.error"
+    ((rc==0)) || { sf_fail "GitHub 版本查询超时或传输失败（curl $rc），请稍后重试；未使用不完整结果。"; return 1; }
+    [[ $code != 404 ]] || return 4
+    [[ $code == 200 ]] || { sf_fail "GitHub 版本查询返回 HTTP $code（可能限流或服务异常），未推定最新版本。"; return 1; }
+}
+sf_core_latest() (
+    local channel=$1 dest=$2 work page count tag rc
+    work=$(mktemp -d "${dest}.tags.XXXXXXXX") || return
+    trap 'rm -rf -- "$work"' EXIT
+    : > "$work/tags.jsonl"
+    # Tags contain version names and commit IDs, without every release's assets.
+    # Enumerate every page before numerical sorting; API order is not version order.
+    for ((page=1;page<=100;page++)); do
+        sf_msg "正在查询 Xray 轻量版本索引（第 $page 页，每次最多等待 30 秒）……"
+        sf_core_api "https://api.github.com/repos/XTLS/Xray-core/tags?per_page=100&page=$page" "$work/page.json" || return 1
+        jq -e 'type=="array" and all(.[]; type=="object" and (.name|type)=="string")' "$work/page.json" >/dev/null || {
+            sf_fail 'GitHub 版本索引格式异常。'; return 1;
+        }
+        count=$(jq length "$work/page.json") || return
+        jq -c '.[].name' "$work/page.json" >> "$work/tags.jsonl" || return
+        ((count==100)) || break
+    done
+    ((page<=100)) || { sf_fail '版本索引分页超过安全上限，未推定最新版本。'; return 1; }
+    jq -sr 'map(select(test("^v[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$")))|unique|
+      sort_by(ltrimstr("v")|split(".")|map(tonumber))|reverse[]' "$work/tags.jsonl" > "$work/candidates" || return
+    while IFS= read -r tag; do
+        sf_msg "正在核对 Xray $tag 的已发布版本信息……"
+        rc=0
+        sf_core_api "https://api.github.com/repos/XTLS/Xray-core/releases/tags/$tag" "$work/release.json" || rc=$?
+        if ((rc==4)); then continue; fi # An unpublished Git tag is not a Release.
+        ((rc==0)) || return 1
+        jq -e --arg tag "$tag" '.tag_name==$tag and (.draft|type)=="boolean" and
+          (.prerelease|type)=="boolean" and (.published_at==null or (.published_at|type)=="string")' "$work/release.json" >/dev/null || {
+            sf_fail 'GitHub 发行信息格式异常或标签不一致。'; return 1;
+        }
+        jq -e --arg channel "$channel" '.draft==false and (.published_at|type)=="string" and
+          ($channel=="auto" or ($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false))' "$work/release.json" >/dev/null || continue
+        cp -- "$work/release.json" "$dest" || return
+        sf_msg "已选 Xray $tag（$(jq -r 'if .prerelease then "Pre" else "正式版" end' "$dest")）。"
+        return 0
+    done < "$work/candidates"
+    sf_fail "没有符合 $channel 频道的已发布版本；未退回其他频道。"
+)
 sf_release_metadata() {
     local channel=$1 version=$2 dest=$3
     [[ -z $version ]] || sf_core_require_version "$version" || return
@@ -108,12 +190,20 @@ sf_project_release() (
     [[ $repo == XTLS/Xray-core || $repo == sprill-gt/SF-Xray-Hop ]] || return 2
     [[ $channel == auto || $channel == pre || $channel == stable || $channel == pinned ]] || return 2
     [[ $channel != auto || $repo == XTLS/Xray-core ]] || return 2
+    if [[ $repo == XTLS/Xray-core && -z $version && $channel != pinned ]]; then
+        sf_core_latest "$channel" "$dest"; return $?
+    fi
     work=$(mktemp -d "${dest}.pages.XXXXXXXX") || return
     trap 'rm -rf -- "$work"' EXIT
     if [[ -n $version ]]; then
         version=${version#v}
         [[ $version =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]] || return 2
-        sf_curl_download "https://api.github.com/repos/$repo/releases/tags/v$version" "$dest" || return
+        if [[ $repo == XTLS/Xray-core ]]; then
+            sf_msg "正在查询 Xray v$version（每次最多等待 30 秒）……"
+            sf_core_api "https://api.github.com/repos/$repo/releases/tags/v$version" "$dest" || return 1
+        else
+            sf_curl_download "https://api.github.com/repos/$repo/releases/tags/v$version" "$dest" || return
+        fi
         jq -e --arg tag "v$version" --arg channel "$channel" '.draft==false and .tag_name==$tag and
           (.prerelease|type)=="boolean" and (.published_at|type)=="string" and
           ($channel=="auto" or $channel=="pinned" or ($channel=="pre" and .prerelease==true) or ($channel=="stable" and .prerelease==false))' "$dest" >/dev/null || return
