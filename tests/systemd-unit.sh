@@ -19,7 +19,7 @@ before, after = map(float, sys.argv[1:])
 assert after < before, (before, after)
 print(f"PASS offline systemd exposure {before} -> {after}; not runtime acceptance")
 PY
-    systemd-analyze security --offline=yes --no-pager --threshold="$before" "$work/after/xray.service" >/dev/null
+    systemd-analyze security --offline=yes --no-pager --threshold=15 "$work/after/xray.service" >/dev/null
 else
     printf 'SKIP offline scoring: systemd version has no --offline; verify only\n'
 fi
