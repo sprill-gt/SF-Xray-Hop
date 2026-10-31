@@ -247,6 +247,11 @@ pass 'color highlights title and choices without turning section labels into act
     [[ $(cat "$TEST_WORK/new-track") == stable ]]
     grep -q '5. 更新跟随：最新（含 Pre）' "$TEST_WORK/track-menu"
     grep -q '更新跟随：最新（含 Pre）' "$TEST_WORK/track-title"
+    rm "$TEST_WORK/new-track" "$TEST_WORK/menu-step"
+    sf_confirm() { return 130; }
+    sf_action_done() { printf '%s\n' "$1" > "$TEST_WORK/track-cancel-status"; }
+    sf_core_menu > "$TEST_WORK/cancel-title" 2>&1
+    [[ ! -e $TEST_WORK/new-track && $(cat "$TEST_WORK/track-cancel-status") == 130 ]]
 )
-pass 'core menu displays saved intent and confirms switching without invoking update'
+pass 'core menu displays intent, confirms switching and preserves cancellation without updating'
 printf 'TOTAL %d UI control-flow checks (business actions mocked)\n' "$count"

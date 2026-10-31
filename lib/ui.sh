@@ -232,7 +232,7 @@ sf_core_menu() {
             1) sf_core_update ;; 2) sf_core_select_menu ;;
             3) sf_core_rollback --previous ;; 4) sf_core_rollback ;;
             5) if [[ $track == latest ]]; then next=stable; else next=latest; fi
-               if sf_confirm "切换为 $(sf_track_label "$next")？本次不换核、不重启。"; then sf_core_track "$next"; fi ;;
+               sf_confirm "切换为 $(sf_track_label "$next")？本次不换核、不重启。" && sf_core_track "$next" ;;
             0) return 0 ;;
         esac
         sf_action_done "$?"
@@ -317,7 +317,7 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
                                 --bbr on|off --name 名称 --core-track latest|stable --channel auto|pre|stable --version 核心版本
   guide                         两端链式连接引导
   view [direct|relay|handoff]    默认直连；relay 仅入口，handoff 仅出口
-  view json [direct|relay]       客户端 JSON，默认 direct，HTTP 127.0.0.1:10809
+  view json [direct|relay]       客户端 JSON，默认 direct，HTTP 10809 / SOCKS5 10808
   node name 名称                修改本机显示名
   node downstream-name 名称     修改本地下游别名
   node role standalone|exit [--yes]
@@ -333,7 +333,7 @@ SF-Xray-Hop / sfxh — 一键直连、按需链式（发布候选版 RC）
   core track [latest|stable]    查看／保存更新跟随，旧安装默认 latest（含 Pre）
   core check                    按更新跟随检查核心，提示撤回版本
   core update [--channel auto|pre|stable|pinned] [--version 版本] [--yes]
-                                默认更新到最新核心（正式版 / Pre 取较大版本），按保存的更新跟随设置选择
+                                按保存的更新跟随设置选择最新可用版本；显式频道只影响本次
   core select 版本号 [--yes]     自主选择版本；最低 26.9.9，也可用 core 版本号
   core rollback [版本号|完整归档ID|--previous] [--offline]
                                 版本号为在线选择；离线仅限已验证本地归档

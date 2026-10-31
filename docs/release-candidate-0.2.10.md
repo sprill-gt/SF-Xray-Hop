@@ -26,8 +26,10 @@
 - 两个 Linux 核心各 38 项真实回环协议检查通过，覆盖 0/1-RTT、双跳、下游故障拒绝直出、UDP 和导出客户端 UDP/443 本地阻断。
 - 本地 Windows 26.10.31 同样通过 38 项真实协议检查；ShellCheck、LF、语法、文档链接及凭据扫描通过。
 
-## 仍待验证
+## 最终验证与边界
 
-新增的 tests/runtime-sandbox.sh 只允许一次性 GitHub runner，检查真实加固主进程的启动、只读目录、日志及重启；其结果待后续 CI 补充。Debian 12/13 的完整真实 systemd install → restart → core update → rollback → uninstall 生命周期尚未验收；当前 Debian 矩阵为引导/逻辑测试，不能替代这项证据。
+[最终源码 CI 41236732937](https://github.com/sprill-gt/SF-Xray-Hop/actions/runs/41236732937) 在 a3c0879 上四项矩阵通过，并新增通过 `tests/runtime-sandbox.sh`：一次性 Ubuntu 24.04 runner 的真实加固主进程启动/重启、root 预启动恢复、非 root 核心、仅 CAP_NET_BIND_SERVICE、配置和运行目录只读、日志写入。该检查使用回环 HTTP fixture 验证沙箱，协议另由双核心真实回环实验室验证。
+
+Debian 12/13 的完整真实 systemd install → restart → core update → rollback → uninstall 生命周期尚未验收；当前 Debian 矩阵为引导/逻辑测试，不能替代这项证据。
 
 BBR 的真实内核持久化、不同虚拟化环境、重启后恢复尚未实测；当前为可恢复逻辑和所有权边界测试。未测公网设备或生产链路。发行/attestation 工作流尚未由正式 tag 触发，不能宣称已经生成可公开验证的发行证明。可选的每周跟随上游浮动核心任务未启用。
