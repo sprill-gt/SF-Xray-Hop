@@ -26,7 +26,7 @@
 
 ## 管理脚本升级
 
-菜单8或 `sfxh self check/update/rollback`；脚本与核心分别更新。默认选择项目正式 Release；没有正式版就停止。维护者测试可明确 `--version 0.2.9 --allow-pre`；只有相应 Release 及完整资产实际发布后才可下载。脚本更新不替换正在运行的核心；之后运行doctor检查当前核心安全行为，失败时需选择通过门槛的核心。回滚到旧管理脚本也会回退管理侧校验逻辑，应谨慎使用，不能当作安全补丁仍然生效。
+菜单8或 `sfxh self check/update/rollback`；脚本与核心分别更新。缺少来源的旧安装和本地包默认选择正式 Release；通过 --channel stable/pre 可双向切换，后续无参更新跟随已安装脚本的已验证来源。所选通道没有发行就停止，不回退其他通道。维护者测试可明确 `--version 0.2.9 --allow-pre`；只有相应 Release 及完整资产实际发布后才可下载。脚本更新不替换正在运行的核心；之后运行doctor检查当前核心安全行为，失败时需选择通过门槛的核心。回滚到旧管理脚本也会回退管理侧校验逻辑，应谨慎使用，不能当作安全补丁仍然生效。
 
 发行包契约：Release 包含 `manifest.json` 和 `SF-Xray-Hop-版本.tar.gz`。清单 schemaVersion=1，project=SF-Xray-Hop，包含 version、40位 commit、archive.name/sha256/size；标签解析到的提交必须匹配。API资产摘要（若提供）和完整包摘要均检查。HTTPS同源摘要不是独立签名，项目没有把包内公钥作为信任根。
 
