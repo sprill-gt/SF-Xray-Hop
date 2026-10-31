@@ -18,7 +18,7 @@ if args.release_commit:
     dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()
     if not re.fullmatch(r'[a-f0-9]{40}', args.release_commit) or head != args.release_commit or dirty:
         raise SystemExit('Release manifest requires the exact clean HEAD commit; do not label working files as a committed release.')
-FILES = [ROOT / n for n in ("README.md", "sf-xray-hop", "sfxh", "install.sh", ".gitattributes")]
+FILES = [ROOT / n for n in ("README.md", "sf-xray-hop", "sfxh", "install.sh", ".gitattributes", ".editorconfig", "LICENSE", "SECURITY.md", "CHANGELOG.md")]
 for directory in ("lib", "templates", "data", "systemd", "docs", "tests", "tools"):
     FILES.extend(p for p in (ROOT / directory).rglob("*") if p.is_file() and "__pycache__" not in p.parts)
 version = re.search(r"^SFXH_VERSION=([0-9.]+)$", (ROOT / "lib/common.sh").read_text(encoding="utf-8"), re.M)[1]

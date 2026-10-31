@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
 sf_detect_address() {
-    local a b
-    a=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 https://api.ipify.org) || a=''
-    b=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 https://icanhazip.com | tr -d '\r\n') || b=''
-    if [[ -n $a && $a == "$b" && $a =~ ^[0-9.]+$ ]] && sf_host_valid "$a"; then printf '%s\n' "$a"; else return 1; fi
+    local url value first second
+    local -A votes=()
+    for url in https://api4.ipify.org https://ipv4.icanhazip.com https://www.cloudflare.com/cdn-cgi/trace; do
+        value=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 --max-filesize 4096 "$url") || continue
+        if [[ $url == https://www.cloudflare.com/* ]]; then
+            value=$(printf '%s\n' "$value" | sed -n 's/^ip=//p')
+        fi
+        value=${value%$'\n'}; value=${value%$'\r'}
+        [[ $value =~ ^[0-9.]+$ ]] && sf_host_valid "$value" || continue
+        IFS=. read -r first second _ <<< "$value"
+        # Reject special-use ranges, including documentation/benchmark space.
+        case "$value" in
+            0.*|10.*|127.*|169.254.*|192.0.0.*|192.0.2.*|192.168.*|198.18.*|198.19.*|198.51.100.*|203.0.113.*) continue ;;
+        esac
+        ((first<224)) || continue
+        ((first!=100 || second<64 || second>127)) || continue
+        ((first!=172 || second<16 || second>31)) || continue
+        votes[$value]=$((${votes[$value]:-0}+1))
+        if ((votes[$value]>=2)); then printf '%s\n' "$value"; return 0; fi
+    done
+    return 1
 }
 sf_deploy_manager() {
     local release
@@ -15,8 +32,10 @@ sf_deploy_manager() {
     elif ! getent passwd sfxray >/dev/null; then
         useradd --system --user-group --home-dir /nonexistent --shell /usr/sbin/nologin sfxray || return
     fi
-    jq -n --argjson uid "$(id -u sfxray)" --arg install "$SFXH_INSTALL" --arg config "$SFXH_ETC" \
-      '{project:"SF-Xray-Hop",serviceUid:$uid,installation:$install,configuration:$config,firewallRules:[],scheduledTasks:[]}' > "$SFXH_ETC/ownership.json" || return
+    local previous_owner='{}'
+    [[ ! -f $SFXH_ETC/ownership.json ]] || previous_owner=$(cat "$SFXH_ETC/ownership.json") || return
+    jq -n --argjson previous "$previous_owner" --argjson uid "$(id -u sfxray)" --arg install "$SFXH_INSTALL" --arg config "$SFXH_ETC" \
+      '$previous+{project:"SF-Xray-Hop",serviceUid:$uid,installation:$install,configuration:$config,firewallRules:[],scheduledTasks:[]}' > "$SFXH_ETC/ownership.json" || return
     chmod 600 "$SFXH_ETC/ownership.json" || return
     if [[ $SFXH_CODE != "$SFXH_INSTALL" ]]; then
         release=$(sf_manager_stage "$SFXH_CODE") && sf_manager_activate "$release" || return
@@ -33,33 +52,40 @@ sf_deploy_manager() {
     systemctl daemon-reload && systemctl enable xray.service >/dev/null 2>&1
 }
 sf_build_initial_state() {
-    local binary=$1 work=$2 name=$3 address=$4 port=$5 domain=$6 core=$7 version=$8 channel=$9 rtt=${10}
+    local binary=$1 work=$2 name=$3 address=$4 port=$5 domain=$6 core=$7 version=$8 channel=$9 rtt=${10} track=${11:-$SFXH_DEFAULT_TRACK}
     local node_uuid direct_uuid relay_uuid
     node_uuid=$("$binary" uuid) && direct_uuid=$("$binary" uuid) && relay_uuid=$("$binary" uuid) || return
     [[ -n $name ]] || name="node-${node_uuid:0:8}"
     printf '%s\0' "$node_uuid" "$name" "$address" "$port" "$direct_uuid" "$relay_uuid" "$domain" "$(sf_random)" "/$(sf_random)" "$core" "$version" "$channel" |
-      jq -Rs --slurpfile enc "$work/encryption.json" --slurpfile keys "$work/reality-keys.json" --argjson source "$(sf_source_info)" '
+      jq -Rs --slurpfile enc "$work/encryption.json" --slurpfile keys "$work/reality-keys.json" --arg track "$track" --argjson source "$(sf_source_info)" '
         split("\u0000") as $a | {schemaVersion:2,
         node:{id:$a[0],name:$a[1],address:$a[2],port:($a[3]|tonumber)},
         identities:{direct:{id:$a[4],email:"sf-xray-hop-direct"},relay:{id:$a[5],email:"sf-xray-hop-relay"}},
         encryption:$enc[0], reality:($keys[0]+{target:($a[6]+":443"),serverName:$a[6],shortId:$a[7]}),
         fingerprint:"chrome",xhttp:{path:$a[8],mode:"auto"},nextHop:null,
         presentation:{role:"standalone",downstreamName:null,downstreamNameSource:null,entry:null},
-        core:{id:$a[9],version:$a[10],channel:$a[11],pinnedVersion:(if $a[11]=="pinned" then $a[10] else null end)},
+        core:{id:$a[9],version:$a[10],channel:$a[11],track:$track,pinnedVersion:(if $a[11]=="pinned" then $a[10] else null end)},
         installationSource:$source}' > "$work/base.json" || return
     sf_rtt_values "$work/base.json" "$rtt" "$work/state.json"
 }
 sf_install() (
-    local address='' port=443 rtt=0 target='' name='' channel=auto version='' work core binary domain
+    local address='' port=443 rtt=0 target='' name='' channel='' version='' work core binary domain track=$SFXH_DEFAULT_TRACK explicit_track='' bbr=off
     while (($#)); do
         [[ $# -ge 2 ]] || { sf_usage_error '安装参数缺少值。'; return 2; }
         case "$1" in
             --address) address=$2 ;; --port) port=$2 ;; --rtt) rtt=$2 ;; --target) target=$2 ;;
-            --name) name=$2 ;; --channel) channel=$2 ;; --version) sf_core_require_version "$2" || return; version=${2#v}; channel=pinned ;;
+            --bbr) bbr=$2 ;; --name) name=$2 ;; --channel) channel=$2 ;; --core-track) track=$2; explicit_track=1 ;; --version) sf_core_require_version "$2" || return; version=${2#v}; channel=pinned ;;
             *) sf_usage_error "未知安装选项：$1"; return 2 ;;
         esac
         shift 2
     done
+    [[ $bbr == on || $bbr == off ]] || return 2
+    [[ $track == latest || $track == stable ]] || { sf_usage_error 'core-track 允许 latest 或 stable。'; return 2; }
+    if [[ -z $channel ]]; then
+        if [[ $track == stable ]]; then channel=stable; else channel=auto; fi
+    elif [[ -z $explicit_track && -z $version ]]; then
+        case "$channel" in stable) track=stable ;; auto|pre) track=latest ;; esac
+    fi
     if [[ -n $version ]]; then sf_core_require_version "$version" || return; channel=pinned; fi
     if sf_installed; then sf_msg '本机已安装；身份、名称、用途、下游和更新频道保持不变。运行 sfxh 管理。'; return 0; fi
     sf_msg '步骤 1/3：检查系统与安装环境'
@@ -113,7 +139,7 @@ sf_install() (
     binary=$(sf_core_path "$core") || return
     version=$(jq -r '.tag_name|ltrimstr("v")' "$work/release.json")
     # Placeholder is never activated: each selected target must pass a real handshake.
-    sf_build_initial_state "$binary" "$work" "$name" "$address" "$port" www.example.com "$core" "$version" "$channel" "$rtt" || return
+    sf_build_initial_state "$binary" "$work" "$name" "$address" "$port" www.example.com "$core" "$version" "$channel" "$rtt" "$track" || return
     while ! domain=$(sf_target_select "$binary" "$target" "$work" "$work/state.json"); do
         sf_tty || return 1
         sf_msg '保留已填写的端口、RTT 和生成参数；可更换目标重新测试。'
@@ -125,6 +151,7 @@ sf_install() (
     sf_msg '步骤 3/3：安装服务并验证本机连接'
     sf_deploy_manager || return
     sf_tx_apply "$work/state.json" '安装本机' || return
+    [[ $bbr != on ]] || sf_tune_bbr on || return
     sf_firewall_note
     sf_msg '本机安装完成，可直接使用；运行 sfxh 管理，菜单1可按需开启链式。'
     if sf_tty; then sf_view direct; else sf_msg '非交互安装不输出访问凭据；主动运行 sfxh view direct 查看。'; fi

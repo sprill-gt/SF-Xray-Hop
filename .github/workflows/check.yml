@@ -1,33 +1,45 @@
 name: Source and isolated regression
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  debian12-bootstrap:
+  debian-bootstrap:
     runs-on: ubuntu-24.04
-    container: debian:12
+    strategy:
+      fail-fast: false
+      matrix:
+        debian: ['12', '13']
+    container: debian:${{ matrix.debian }}
     timeout-minutes: 10
     steps:
-      - name: Debian 12 fixture dependencies
+      - name: Bootstrap fixture dependencies
         run: apt-get -o APT::Update::Error-Mode=any update && apt-get install -y --no-install-recommends bash ca-certificates curl git python3 jq shellcheck
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Bookworm bootstrap and release resolver (no systemd or VPS acceptance)
+      - name: Static and bootstrap fixtures (no systemd acceptance)
         shell: bash
         run: |
-          python3 tests/check.py
-          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
-          python3 tests/bootstrap-command.py
-          bash tests/bootstrap-dependencies.sh
-          bash tests/releases-auto.sh
-          bash tests/asset-resume.sh
+          bash tests/run-static.sh
           bash tests/core-r2.sh
+          bash tests/bbr.sh
           python3 tests/bootstrap.py
   regression:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - core: '26.9.9'
+            sha256: '1eb9175d0f0a8f8149c9230a7fc5ae66ce332ed20a53155ce61fe62e3f58b7df'
+          - core: '26.10.31'
+            sha256: 'e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -38,24 +50,34 @@ jobs:
       - name: Pinned official protocol-test core
         run: |
           mkdir -p .cache/ci-core
-          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 https://github.com/XTLS/Xray-core/releases/download/v26.9.9/Xray-linux-64.zip -o .cache/ci-core/core.zip
-          printf '%s  %s\n' '1eb9175d0f0a8f8149c9230a7fc5ae66ce332ed20a53155ce61fe62e3f58b7df' '.cache/ci-core/core.zip' | sha256sum -c -
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 'https://github.com/XTLS/Xray-core/releases/download/v${{ matrix.core }}/Xray-linux-64.zip' -o .cache/ci-core/core.zip
+          printf '%s  %s\n' '${{ matrix.sha256 }}' '.cache/ci-core/core.zip' | sha256sum -c -
           unzip -p .cache/ci-core/core.zip xray > .cache/ci-core/xray
           chmod 755 .cache/ci-core/xray
-      - name: Source, documentation and bootstrap command
+      - name: Static, documentation and bootstrap checks
+        run: bash tests/run-static.sh
+      - name: Unit verification and offline hardening comparison
         run: |
-          python3 tests/check.py
-          shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
-          python3 tests/bootstrap-command.py
-          bash tests/bootstrap-dependencies.sh
-          bash tests/releases-auto.sh
-          bash tests/asset-resume.sh
+          sudo install -D -m 755 sf-xray-hop /usr/local/lib/sf-xray-hop/sf-xray-hop
+          bash tests/systemd-unit.sh
       - name: Isolated logic and filesystem regression (services and network mocked)
         run: |
-          for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version; do
+          for test in unit exits product-r2 core-r2 install-r2 transactions ui archive prune reporting manager self-update running-version bbr; do
             sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash "tests/$test.sh"
           done
           sudo python3 tests/bootstrap.py
+      - name: Real temporary systemd privilege and private-network gates
+        run: |
+          mkdir -p .cache/legacy-core
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip -o .cache/legacy-core/core.zip
+          printf '%s  %s\n' '23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae' '.cache/legacy-core/core.zip' | sha256sum -c -
+          unzip -p .cache/legacy-core/core.zip xray > .cache/legacy-core/xray
+          chmod 755 .cache/legacy-core/xray
+          sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash tests/probe-privileges.sh
+          sudo bash tests/core-safety-live.sh "$PWD/.cache/ci-core/xray" "$PWD/.cache/legacy-core/xray"
+          sudo env GITHUB_ACTIONS=true SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash tests/runtime-sandbox.sh
+      - name: Real loopback protocol and routing regression
+        run: python3 tests/protocol_lab.py --core .cache/ci-core/xray --jq /usr/bin/jq --openssl /usr/bin/openssl --curl /usr/bin/curl
       - name: Distribution integrity
         run: |
           python3 tools/package.py

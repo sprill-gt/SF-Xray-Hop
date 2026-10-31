@@ -202,4 +202,11 @@ require test -f "$work/fail-candidate"
 pass 'metadata-only edit preserves a stopped service and never probes or starts it'
 reject sf_tx_apply "$work/offline-invalid.json" forbidden-runtime-change online metadata
 pass 'metadata intent cannot bypass runtime-change validation'
+calls=$(wc -l < "$work/service-calls")
+before_track=$(sf_hash "$(sf_generation)/config.json")
+require sf_core_track stable
+require test "$(sf_core_track_value "$(sf_state)")" = stable
+require test "$(sf_hash "$(sf_generation)/config.json")" = "$before_track"
+require test "$(wc -l < "$work/service-calls")" = "$calls"
+pass 'core track persists without changing runtime config, probing, or starting stopped service'
 printf 'TOTAL %d transaction checks (services and network mocked)\n' "$count"

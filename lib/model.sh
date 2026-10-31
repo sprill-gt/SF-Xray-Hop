@@ -4,8 +4,11 @@ sf_validate_state() {
     sf_host_valid "$(jq -r .node.address "$1")" || { sf_fail '本机地址格式无效。'; return 1; }
     if jq -e '.presentation.entry!=null' "$1" >/dev/null; then sf_host_valid "$(jq -r .presentation.entry.address "$1")" || { sf_fail '登记的入口地址格式无效。'; return 1; }; fi
 }
+sf_core_track_value() { sf_jq -r 'include "model"; core_track' "$1"; }
+sf_track_label() { if [[ $1 == stable ]]; then printf '仅正式版\n'; else printf '最新（含 Pre）\n'; fi; }
 sf_render() { sf_jq 'include "model"; server_config(.)' "$1" > "$2"; }
 sf_profile() { sf_jq --arg which "$2" 'include "model"; public_profile(.;$which)' "$1"; }
+sf_export_client_config() { sf_jq 'include "model"; exported_client_config(.)' "$1" > "$2"; }
 sf_client_config() { sf_jq --argjson port "${3:-10809}" 'include "model"; client_config(.;$port)' "$1" > "$2"; }
 sf_rtt_values() {
     local input=$1 mode=$2 output=$3

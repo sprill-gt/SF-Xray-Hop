@@ -57,7 +57,29 @@ printf '\n# changed unit\n' >> "$SFXH_UNIT"
 if sf_upgrade_manager > "$work/rejected.log" 2>&1; then exit 1; fi
 test "$(readlink "$SFXH_INSTALL/sf-xray-hop")" = "$entry"
 printf 'PASS incompatible unit blocks manager upgrade before publication\n'
+cp "$SFXH_CODE/tests/fixtures/xray-0.2.9.service" "$SFXH_UNIT"
+sf_manager_copy "$SFXH_CODE" "$work/migration"
+sed -i 's/^SFXH_VERSION=.*/SFXH_VERSION=0.2.11/' "$work/migration/lib/common.sh"
+systemd-analyze() { [[ $1 == verify ]]; }
+systemctl() { printf '%s\n' "$*" >> "$TEST_WORK/service-calls"; [[ $1 == daemon-reload ]]; }
+sf_manager_switch "$work/migration"
+cmp "$SFXH_UNIT" "$SFXH_CODE/systemd/xray.service"
+grep -qx daemon-reload "$work/service-calls"
+! grep -q restart "$work/service-calls"
+[[ ! -f $SFXH_ETC/manager-transaction.json && ! -f $SFXH_ETC/manager-unit-backup ]]
+printf 'PASS known legacy unit migrates with daemon-reload, no restart and no stale journal\n'
+# Crash after unit installation must restore both unit and manager on next entry.
+cp "$SFXH_CODE/tests/fixtures/xray-0.2.9.service" "$SFXH_UNIT"
+sf_manager_checkpoint() { [[ $1 != after-switch ]] || kill -KILL "$BASHPID"; }
+if sf_manager_switch "$SFXH_CODE" > "$work/migration-crash.log" 2>&1; then exit 1; fi
+sf_manager_checkpoint() { :; }
+[[ -f $SFXH_ETC/manager-transaction.json ]]
+sf_self_recover > "$work/unit-recovery.log" 2>&1 || [[ $? == 75 ]]
+cmp "$SFXH_UNIT" "$SFXH_CODE/tests/fixtures/xray-0.2.9.service"
+[[ $(bash "$SFXH_INSTALL/sf-xray-hop" --version) == 0.2.11 ]]
+printf 'PASS interrupted unit migration restores exact old unit and old manager\n'
 cp "$SFXH_CODE/systemd/xray.service" "$SFXH_UNIT"
+entry=$(readlink "$SFXH_INSTALL/sf-xray-hop")
 jq '.outbounds[0].tag="changed"' "$SFXH_ETC/generations/initial/config.json" > "$work/changed.json"
 cp "$work/changed.json" "$SFXH_ETC/generations/initial/config.json"
 if sf_upgrade_manager > "$work/rejected.log" 2>&1; then exit 1; fi
