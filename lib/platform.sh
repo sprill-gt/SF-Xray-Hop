@@ -27,7 +27,7 @@ sf_platform_check() {
 sf_dependencies() {
     local pkg status log code
     local -a missing=()
-    for pkg in bash jq curl ca-certificates unzip openssl coreutils util-linux iproute2 procps iputils-ping; do
+    for pkg in bash jq curl ca-certificates unzip openssl coreutils util-linux iproute2 procps iputils-ping kmod; do
         status=$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null) || status=''
         [[ $status == 'install ok installed' ]] || missing+=("$pkg")
     done

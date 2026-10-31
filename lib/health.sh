@@ -230,6 +230,7 @@ sf_doctor() (
     state=$(sf_state) || return; binary=$(sf_current_core) || return
     work=$(sf_temp) || return
     trap 'sf_remove_tree "$work"' EXIT
+    sf_core_warn_withdrawn "$(jq -r .core.version "$state")"
     sf_validate_state "$state" && sf_generation_integrity "$(dirname "$state")" && sf_core_verify_archive "$(jq -r .core.id "$state")" || return
     sf_core_security "$binary" || return
     sf_core_test "$binary" "$(dirname "$state")/config.json" "$work/config-test.log" || return

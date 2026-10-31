@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "versions": [
+    {
+      "version": "26.10.29",
+      "reason": "官方在 26.10.31 发行说明中撤回",
+      "source": "https://github.com/XTLS/Xray-core/releases/tag/v26.10.31"
+    }
+  ]
+}
