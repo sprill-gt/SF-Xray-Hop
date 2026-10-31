@@ -22,12 +22,21 @@ jobs:
           shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
           python3 tests/bootstrap-command.py
           bash tests/bootstrap-dependencies.sh
+          bash tests/argon-review.sh
           bash tests/releases-auto.sh
           bash tests/asset-resume.sh
           bash tests/core-r2.sh
           python3 tests/bootstrap.py
   regression:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - core: '26.9.9'
+            sha256: '1eb9175d0f0a8f8149c9230a7fc5ae66ce332ed20a53155ce61fe62e3f58b7df'
+          - core: '26.10.31'
+            sha256: 'e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -38,8 +47,8 @@ jobs:
       - name: Pinned official protocol-test core
         run: |
           mkdir -p .cache/ci-core
-          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 https://github.com/XTLS/Xray-core/releases/download/v26.9.9/Xray-linux-64.zip -o .cache/ci-core/core.zip
-          printf '%s  %s\n' '1eb9175d0f0a8f8149c9230a7fc5ae66ce332ed20a53155ce61fe62e3f58b7df' '.cache/ci-core/core.zip' | sha256sum -c -
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 180 --retry 2 'https://github.com/XTLS/Xray-core/releases/download/v${{ matrix.core }}/Xray-linux-64.zip' -o .cache/ci-core/core.zip
+          printf '%s  %s\n' '${{ matrix.sha256 }}' '.cache/ci-core/core.zip' | sha256sum -c -
           unzip -p .cache/ci-core/core.zip xray > .cache/ci-core/xray
           chmod 755 .cache/ci-core/xray
       - name: Source, documentation and bootstrap command
@@ -48,6 +57,7 @@ jobs:
           shellcheck -S warning -e SC1090,SC2034 sf-xray-hop sfxh install.sh lib/*.sh tests/*.sh
           python3 tests/bootstrap-command.py
           bash tests/bootstrap-dependencies.sh
+          bash tests/argon-review.sh
           bash tests/releases-auto.sh
           bash tests/asset-resume.sh
       - name: Isolated logic and filesystem regression (services and network mocked)
@@ -56,6 +66,8 @@ jobs:
             sudo env SFXH_TEST_CORE="$PWD/.cache/ci-core/xray" bash "tests/$test.sh"
           done
           sudo python3 tests/bootstrap.py
+      - name: Real loopback protocol and routing regression
+        run: python3 tests/protocol_lab.py --core .cache/ci-core/xray --jq /usr/bin/jq --openssl /usr/bin/openssl --curl /usr/bin/curl
       - name: Distribution integrity
         run: |
           python3 tools/package.py

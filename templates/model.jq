@@ -61,3 +61,7 @@ def server_config($s):
 def client_config($p; $port):
   {log:{access:"none",loglevel:"warning"},inbounds:[{tag:"local-http",listen:"127.0.0.1",port:$port,protocol:"http",settings:{}}],
    outbounds:[outbound($p;"proxy")],routing:{rules:[{type:"field",inboundTag:["local-http"],outboundTag:"proxy"}]}};
+def exported_client_config($p):
+  client_config($p;10809) |
+  .inbounds += [{tag:"local-socks",listen:"127.0.0.1",port:10808,protocol:"socks",settings:{auth:"noauth",udp:true}}] |
+  .routing.rules[0].inboundTag += ["local-socks"];

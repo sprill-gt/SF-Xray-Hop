@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
 sf_detect_address() {
-    local a b
-    a=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 https://api.ipify.org) || a=''
-    b=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 https://icanhazip.com | tr -d '\r\n') || b=''
-    if [[ -n $a && $a == "$b" && $a =~ ^[0-9.]+$ ]] && sf_host_valid "$a"; then printf '%s\n' "$a"; else return 1; fi
+    local url value first second
+    local -A votes=()
+    for url in https://api4.ipify.org https://ipv4.icanhazip.com https://www.cloudflare.com/cdn-cgi/trace; do
+        value=$(curl -4 --fail --silent --proxy '' --noproxy '*' --connect-timeout 5 --max-time 8 --max-filesize 4096 "$url") || continue
+        if [[ $url == https://www.cloudflare.com/* ]]; then
+            value=$(printf '%s\n' "$value" | sed -n 's/^ip=//p')
+        fi
+        value=${value%$'\n'}; value=${value%$'\r'}
+        [[ $value =~ ^[0-9.]+$ ]] && sf_host_valid "$value" || continue
+        IFS=. read -r first second _ <<< "$value"
+        # Reject special-use ranges, including documentation/benchmark space.
+        case "$value" in
+            0.*|10.*|127.*|169.254.*|192.0.0.*|192.0.2.*|192.168.*|198.18.*|198.19.*|198.51.100.*|203.0.113.*) continue ;;
+        esac
+        ((first<224)) || continue
+        ((first!=100 || second<64 || second>127)) || continue
+        ((first!=172 || second<16 || second>31)) || continue
+        votes[$value]=$((${votes[$value]:-0}+1))
+        if ((votes[$value]>=2)); then printf '%s\n' "$value"; return 0; fi
+    done
+    return 1
 }
 sf_deploy_manager() {
     local release

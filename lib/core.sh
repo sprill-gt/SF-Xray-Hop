@@ -18,7 +18,7 @@ sf_core_security() (
     cache=$SFXH_VAR/cache/core-safety/$hash.json
     [[ ! -L $SFXH_VAR/cache/core-safety && ! -L $cache ]] || return 1
     if [[ -f $cache ]] && jq -e --arg hash "$hash" --arg policy "$policy" --argjson n "$expected" '
-      .binarySha256==$hash and .policySha256==$policy and .status=="pass" and .tcpChecks==$n and
+      .binarySha256==$hash and .policySha256==$policy and .status=="pass" and .tcpChecks==$n and .udpChecks==2 and
       .identities==2 and .receiverControls==2 and .authenticatedControls==2' "$cache" >/dev/null 2>&1; then return 0; fi
     work=$(sf_temp) || return
     trap 'sf_stop_probe "$pid" "$unit"; sf_remove_tree "$work"' EXIT
@@ -50,7 +50,7 @@ sf_core_security() (
        > "$work/result.json" 2> "$work/unit.log") &
     pid=$!
     result=0; wait "$pid" || result=$?
-    if ((result)) || ! jq -e --argjson n "$expected" '.status=="pass" and .tcpChecks==$n and
+    if ((result)) || ! jq -e --argjson n "$expected" '.status=="pass" and .tcpChecks==$n and .udpChecks==2 and
         .identities==2 and .receiverControls==2 and .authenticatedControls==2' "$work/result.json" >/dev/null 2>&1; then
         sf_fail '未确认核心保持私网安全底线（或隔离探测不可用），拒绝使用该候选；不会因配置能启动或 --offline 而跳过。'
         return 1
@@ -96,11 +96,22 @@ sf_parse_reality_keys() {
       jq -Rs 'split("\n")|map(select(length>0))|select(length==2 and all(.[];test("^[A-Za-z0-9_-]{43}$")))|{privateKey:.[0],password:.[1]}' > "$2" 2>/dev/null || return
     [[ -s $2 ]] || { sf_fail '无法识别 x25519 输出。'; return 1; }
 }
+sf_github_curl() {
+    local url=$1 token=${SFXH_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}
+    shift
+    if [[ $url == https://api.github.com/repos/* && -n $token ]]; then
+        [[ $token =~ ^[A-Za-z0-9_.-]+$ ]] || { sf_fail 'GitHub Token 格式无效。'; return 2; }
+        # Read the credential from stdin, never from curl's process arguments.
+        curl --header @- "$@" "$url" <<< "Authorization: Bearer $token"
+    else
+        curl "$@" "$url"
+    fi
+}
 sf_curl_download() {
     if [[ $1 == https://github.com/XTLS/Xray-core/releases/download/*/Xray-linux-64.zip ]]; then
         sf_core_asset "$1" "$2"
     else
-        curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 180 --retry 2 "$1" -o "$2" 2>/dev/null
+        sf_github_curl "$1" --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 180 --retry 2 -o "$2" 2>/dev/null
     fi
 }
 sf_core_asset() (
@@ -133,9 +144,9 @@ sf_core_asset() (
 sf_core_api() {
     local url=$1 dest=$2 code rc=0
     [[ $url == https://api.github.com/repos/XTLS/Xray-core/* ]] || return 2
-    code=$(curl --silent --show-error --location --compressed --proto '=https' --proto-redir '=https' \
+    code=$(sf_github_curl "$url" --silent --show-error --location --compressed --proto '=https' --proto-redir '=https' \
       --connect-timeout 10 --max-time 30 --retry 1 --retry-max-time 40 --max-filesize 2097152 \
-      --output "$dest" --write-out '%{http_code}' "$url" 2> "$dest.error") || rc=$?
+      --output "$dest" --write-out '%{http_code}' 2> "$dest.error") || rc=$?
     rm -f -- "$dest.error"
     ((rc==0)) || { sf_fail "GitHub 版本查询超时或传输失败（curl $rc），请稍后重试；未使用不完整结果。"; return 1; }
     [[ $code != 404 ]] || return 4

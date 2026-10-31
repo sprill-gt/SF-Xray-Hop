@@ -27,8 +27,9 @@ SFXH_CODE=$source_code
    $(stat -c %a "$private_code") == 700 ]]
 printf 'PASS root-only bootstrap source: DynamicUser reads staged public inputs; private source modes unchanged\n'
 record=$SFXH_VAR/cache/core-safety/$(sf_hash "$protected").json
-jq -e '.status=="pass" and .tcpChecks==26 and .receiverControls==2 and .authenticatedControls==2' "$record" >/dev/null
-printf 'PASS protected core: both authenticated identities, IPv4/IPv6/private DNS, 26 TCP blocks\n'
+expected=$(jq '.targets|length*2' "$source_code/data/core-safety.json")
+jq -e --argjson n "$expected" '.status=="pass" and .tcpChecks==$n and .udpChecks==2 and .receiverControls==2 and .authenticatedControls==2' "$record" >/dev/null
+printf 'PASS protected core: both authenticated identities, IPv4/IPv6/private DNS, TCP target matrix and both UDP identity blocks\n'
 original=$(sf_hash "$record")
 sf_core_security "$protected"
 [[ $(sf_hash "$record") == "$original" ]]

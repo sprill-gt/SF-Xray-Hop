@@ -77,3 +77,5 @@ sudo sfxh chain set < /root/exit-handoff.uri
 退出码：0成功，1验证／执行失败，2用法错误，130取消／中断；中断脚本事务恢复返回75，提示重开命令加载恢复后的代码。工具错误可能透传其非零码。`core rollback --offline` 仍要求历史核心通过当前隔离安全检查及本地启动，不报告公网成功。
 
 完整卸载默认删除私密数据，交互输入 `UNINSTALL`；空回车、EOF、其他文字不删除。`--keep-data` 是显式保留选项；旧 `--purge` 作为完整卸载兼容别名。
+
+客户端 JSON 导出包含回环 HTTP `10809` 与 SOCKS5 `10808`（支持 UDP）；内部健康检测不占用这两个固定端口。GitHub API 可通过环境变量 `SFXH_GITHUB_TOKEN`（优先）或 `GITHUB_TOKEN` 认证；令牌不用于发行资产下载。

@@ -25,12 +25,12 @@ sf_fail() { sf_msg "错误：$*"; return 1; }
 sf_usage_error() { sf_msg "输入错误：$*"; return 2; }
 sf_tty() { [[ -t 0 && -t 2 ]]; }
 sf_root() { [[ ${SFXH_TEST_MODE:-0} == 1 || $EUID == 0 ]] || { sf_fail '请使用 sudo 运行。'; return 2; }; }
-sf_now() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
+sf_now() { TZ=UTC0 printf '%(%Y-%m-%dT%H:%M:%SZ)T\n' -1; }
 sf_random() { od -An -N8 -tx1 /dev/urandom | tr -d ' \n'; }
 sf_hash() { sha256sum -- "$1" | cut -d ' ' -f 1; }
 sf_jq() { jq -L "$SFXH_CODE/templates" "$@"; }
 sf_redact() {
-    LC_ALL=C sed -E \
+    LC_ALL=C sed -u -E \
         -e 's|vless://[^[:space:]]+|[链接已隐藏]|g' \
         -e 's/[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}/[身份已隐藏]/g' \
         -e 's/[A-Za-z0-9_+=\/-]{32,}/[敏感值已隐藏]/g' \

@@ -100,7 +100,7 @@ sf_view() (
     trap 'sf_remove_tree "$temp"' EXIT
     if [[ $mode == json ]]; then
         [[ $which == direct || $which == relay ]] || return 2
-        sf_profile "$state" "$which" > "$temp/profile.json" && sf_client_config "$temp/profile.json" "$temp/client.json" && cat "$temp/client.json"
+        sf_profile "$state" "$which" > "$temp/profile.json" && sf_export_client_config "$temp/profile.json" "$temp/client.json" && cat "$temp/client.json"
         return $?
     fi
     [[ $mode == direct || $mode == relay ]] || return 2

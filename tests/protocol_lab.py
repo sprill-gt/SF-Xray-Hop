@@ -111,6 +111,29 @@ def main():
         threading.Thread(target=server.serve_forever, daemon=True).start()
         servers.append(server)
     tls_port, https_port = [server.server_port for server in servers]
+    udp_servers = []
+    udp_threads = []
+    udp_done = threading.Event()
+
+    def echo_udp(sock):
+        sock.settimeout(.2)
+        while not udp_done.is_set():
+            try:
+                data, peer = sock.recvfrom(65535)
+                sock.sendto(peer[0].encode() + b"\0" + data, peer)
+            except socket.timeout:
+                continue
+
+    # One allowed receiver and one deliberately blocked receiver. Both are live,
+    # so a blocked result cannot be explained by a missing destination service.
+    for _ in range(2):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("127.0.0.1", 0))
+        thread = threading.Thread(target=echo_udp, args=(sock,), daemon=True)
+        thread.start()
+        udp_threads.append(thread)
+        udp_servers.append(sock)
+    udp_port, blocked_udp_port = [s.getsockname()[1] for s in udp_servers]
 
     def model(data, expr):
         options = [args.jq]
@@ -151,7 +174,10 @@ def main():
         freedom["sendThrough"] = source
         # v26.9.9 blocks private destinations by default. Permit ONLY our receiver
         # in the lab; the production template keeps all upstream default rules.
-        freedom["settings"] = {"finalRules": [{"action": "allow", "ip": ["127.0.0.1/32"], "port": str(https_port)}]}
+        freedom["settings"] = {"finalRules": [
+            {"action": "allow", "ip": ["127.0.0.1/32"], "port": str(https_port), "network": "tcp"},
+            {"action": "allow", "ip": ["127.0.0.1/32"], "port": str(udp_port), "network": "udp"},
+        ]}
         file = work / f"{label}.json"
         save(file, config)
         return start(args.core, file, state["node"]["port"], work / f"{label}.log")
@@ -179,6 +205,55 @@ def main():
         finally:
             stop(proc)
 
+    def request_udp(profile, label, destination_port, expected=None, blocked=False):
+        listen_port = port()
+        config = model(profile, f"client_config(.;{listen_port})")
+        config["log"]["loglevel"] = "debug"
+        config["inbounds"][0]["protocol"] = "socks"
+        config["inbounds"][0]["settings"] = {"auth": "noauth", "udp": True, "ip": "127.0.0.1"}
+        file = work / f"client-{label}.json"
+        save(file, config)
+        proc = start(args.core, file, listen_port, work / f"client-{label}.log")
+
+        def read_exact(stream, count):
+            data = b""
+            while len(data) < count:
+                chunk = stream.recv(count - len(data))
+                if not chunk:
+                    raise RuntimeError(f"{label}: truncated SOCKS response")
+                data += chunk
+            return data
+
+        try:
+            with socket.create_connection(("127.0.0.1", listen_port), timeout=3) as control:
+                control.sendall(b"\x05\x01\x00")
+                assert read_exact(control, 2) == b"\x05\x00", f"{label}: SOCKS authentication failed"
+                control.sendall(b"\x05\x03\x00\x01" + b"\x00" * 6)
+                header = read_exact(control, 4)
+                assert header == b"\x05\x00\x00\x01", f"{label}: UDP association failed"
+                relay_host = socket.inet_ntoa(read_exact(control, 4))
+                relay_port = int.from_bytes(read_exact(control, 2), "big")
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+                    client.settimeout(2 if blocked else 5)
+                    payload = os.urandom(32)
+                    packet = b"\x00\x00\x00\x01" + socket.inet_aton("127.0.0.1") + destination_port.to_bytes(2, "big") + payload
+                    client.sendto(packet, (relay_host, relay_port))
+                    try:
+                        response, _ = client.recvfrom(65535)
+                    except socket.timeout:
+                        if not blocked:
+                            raise RuntimeError(f"{label}: UDP response timed out")
+                        marker = f"blocked target: udp:127.0.0.1:{destination_port}"
+                        assert any(marker in log.read_text(errors="replace") for log in work.glob("B-*.log")), f"{label}: missing explicit core block evidence"
+                    else:
+                        assert not blocked, f"{label}: private UDP destination was reachable"
+                        assert response[:10] == packet[:10], f"{label}: UDP destination mismatch"
+                        assert response[10:] == expected.encode() + b"\0" + payload, f"{label}: UDP payload or exit address mismatch"
+            checks.append(label)
+            print(f"PASS {label}", flush=True)
+        finally:
+            stop(proc)
+
     try:
         for rtt in ("0", "1"):
             a, b, b2 = [node(name, rtt) for name in ("入口", "出口1", "出口2")]
@@ -190,6 +265,7 @@ def main():
             relay = model(a, 'public_profile(.;"relay")')
             request(direct, f"{rtt}rtt-single-direct", "127.0.0.11")
             request(relay, f"{rtt}rtt-single-relay", "127.0.0.11")
+            request_udp(direct, f"{rtt}rtt-single-udp", udp_port, "127.0.0.11")
             for fingerprint in ("firefox", "safari"):
                 variant = copy.deepcopy(direct)
                 variant["fingerprint"] = fingerprint
@@ -200,6 +276,10 @@ def main():
             assert {k: v for k, v in model(a, 'public_profile(.;"relay")').items() if k != 'remark'} == {k: v for k, v in relay.items() if k != 'remark'}
             request(direct, f"{rtt}rtt-chain-direct", "127.0.0.11")
             request(relay, f"{rtt}rtt-chain-relay", "127.0.0.12")
+            request_udp(direct, f"{rtt}rtt-chain-direct-udp", udp_port, "127.0.0.11")
+            request_udp(relay, f"{rtt}rtt-chain-relay-udp", udp_port, "127.0.0.12")
+            request_udp(relay, f"{rtt}rtt-chain-private-udp-blocked", blocked_udp_port, blocked=True)
+            request_udp(relay, f"{rtt}rtt-chain-relay-udp-after-block", udp_port, "127.0.0.12")
             bad = model(b2, 'public_profile(.;"relay")')
             bad["id"] = "00000000-0000-4000-8000-000000000000"
             request(bad, f"{rtt}rtt-reject-invalid-candidate", fail=True)
@@ -234,6 +314,11 @@ def main():
             stop(proc)
         for server in servers:
             server.shutdown(); server.server_close()
+        udp_done.set()
+        for thread in udp_threads:
+            thread.join(timeout=2)
+        for sock in udp_servers:
+            sock.close()
 
 
 if __name__ == "__main__":

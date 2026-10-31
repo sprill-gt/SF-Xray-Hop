@@ -4,6 +4,7 @@
 
 | 阅读目的 | 文档 |
 |---|---|
+| 2026-11-01 协议优化、三台生产状态与 TCP/UDP 验证 | [优化与验收](protocol-optimization-20261101.md) |
 | 当前0.2.6 RC、版本入口、日常试用及转正规则 | [RC 交付](release-candidate-0.2.6.md) |
 | 0.2.5 Debian 13生命周期与暂停范围 | [候选验收](release-candidate-0.2.5.md) |
 | 0.2.5 Debian 13双机生命周期、长链接与重连实测 | [Debian 13实机验收](vps-lifecycle-0.2.5-2026-10-01.md) |
@@ -28,3 +29,5 @@
 
 - [R2 产品交互实施与边界](r2-implementation.md)
 - [用户提供的完整 R2 需求快照](requirements-r2.md)
+
+- [Argon 建议复核与实施](argon-review-20261101.md)

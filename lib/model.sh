@@ -6,6 +6,7 @@ sf_validate_state() {
 }
 sf_render() { sf_jq 'include "model"; server_config(.)' "$1" > "$2"; }
 sf_profile() { sf_jq --arg which "$2" 'include "model"; public_profile(.;$which)' "$1"; }
+sf_export_client_config() { sf_jq 'include "model"; exported_client_config(.)' "$1" > "$2"; }
 sf_client_config() { sf_jq --argjson port "${3:-10809}" 'include "model"; client_config(.;$port)' "$1" > "$2"; }
 sf_rtt_values() {
     local input=$1 mode=$2 output=$3

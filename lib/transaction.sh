@@ -194,7 +194,7 @@ sf_prepare_runtime() {
     ln -sfn "$binary" "$SFXH_RUN/xray" || return
 }
 sf_runtime() {
-    local line file=$SFXH_LOG/core/core.log count=0 size=0
+    local line stamp file=$SFXH_LOG/core/core.log count=0 size=0
     # Console output is filtered before persistent storage; no unredacted journal.
     "$SFXH_RUN/xray" run -config "$SFXH_RUN/config.json" 2>&1 |
       sf_redact | while IFS= read -r line; do
@@ -202,6 +202,7 @@ sf_runtime() {
             size=$(wc -c < "$file" 2>/dev/null) || size=0
             if ((size>1048576)); then mv -f "$file.1" "$file.2" 2>/dev/null || :; mv -f "$file" "$file.1" || :; fi
         fi
-        printf '%s %s\n' "$(sf_now)" "$line" >> "$file"; ((count+=1))
+        TZ=UTC0 printf -v stamp '%(%Y-%m-%dT%H:%M:%SZ)T' -1
+        printf '%s %s\n' "$stamp" "$line" >> "$file"; ((count+=1))
       done
 }
