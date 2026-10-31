@@ -81,8 +81,8 @@ sf_tune_bbr() (
     cc=$(sysctl -n net.ipv4.tcp_congestion_control) && qdisc=$(sysctl -n net.core.default_qdisc) || return
     printf '# Managed by SF-Xray-Hop; restore with sfxh tune bbr off\nnet.ipv4.tcp_congestion_control = bbr\nnet.core.default_qdisc = fq\n' > "$work/sysctl"
     printf '# Managed by SF-Xray-Hop\ntcp_bbr\n' > "$work/module"
-    jq --arg cc "$cc" --arg qdisc "$qdisc" --arg sysctl "$(sf_hash "$work/sysctl")" --arg module "$(sf_hash "$work/module")" \
-      '.tuning.bbr={originalCC:$cc,originalQdisc:$qdisc,sysctlSha256:$sysctl,moduleSha256:$module}' "$SF_BBR_OWNER" > "$work/owner.json" || return
+    jq --arg cc "$cc" --arg qdisc "$qdisc" --arg sysctl "$(sf_hash "$work/sysctl")" --arg module_hash "$(sf_hash "$work/module")" \
+      '.tuning.bbr={originalCC:$cc,originalQdisc:$qdisc,sysctlSha256:$sysctl,moduleSha256:$module_hash}' "$SF_BBR_OWNER" > "$work/owner.json" || return
     sf_atomic_json "$SF_BBR_OWNER" "$work/owner.json" || return
     pending=1
     mkdir -p "${SF_BBR_SYSCTL%/*}" "${SF_BBR_MODULE%/*}" || return
