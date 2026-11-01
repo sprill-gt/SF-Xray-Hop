@@ -159,9 +159,14 @@ sf_core_deny_reason() {
     jq -r --arg version "${1#v}" '[.versions[] | select(.version==$version)][0].reason // empty' "$file"
 }
 sf_core_allowed() {
-    local reason
+    local reason context=${2:-explicit}
     if reason=$(sf_core_deny_reason "$1"); then
-        [[ -z $reason ]] || { sf_fail "Xray ${1#v} 已撤回：$reason；请运行 sfxh core update。"; return 2; }
+        if [[ -n $reason ]]; then
+            if [[ $context == selection ]]; then
+                sf_msg "跳过已撤回的 Xray ${1#v}：$reason；继续查找符合条件的版本。"
+            else sf_fail "Xray ${1#v} 已撤回：$reason；请运行 sfxh core update。"; fi
+            return 2
+        fi
     else
         sf_fail '撤回版本策略无法读取，停止选版。'; return 1
     fi
@@ -192,7 +197,10 @@ sf_core_latest() (
     jq -sr 'map(select(test("^v[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}$")))|unique|
       sort_by(ltrimstr("v")|split(".")|map(tonumber))|reverse[]' "$work/tags.jsonl" > "$work/candidates" || return
     while IFS= read -r tag; do
-        if ! sf_core_allowed "$tag"; then continue; fi
+        rc=0
+        sf_core_allowed "$tag" selection || rc=$?
+        if ((rc==2)); then continue; fi
+        ((rc==0)) || return 1
         sf_msg "正在核对 Xray $tag 的已发布版本信息……"
         rc=0
         sf_core_api "https://api.github.com/repos/XTLS/Xray-core/releases/tags/$tag" "$work/release.json" || rc=$?

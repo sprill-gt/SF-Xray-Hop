@@ -6,10 +6,17 @@ sf_bbr_paths() {
     SF_BBR_OWNER=$SFXH_ETC/ownership.json
 }
 sf_bbr_status() {
+    local cc qdisc
     sf_bbr_paths
-    sf_msg "TCP 拥塞控制：$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')；默认队列：$(sysctl -n net.core.default_qdisc 2>/dev/null || printf '未知')"
+    cc=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')
+    qdisc=$(sysctl -n net.core.default_qdisc 2>/dev/null || printf '未知')
+    sf_msg "TCP 拥塞控制：$cc；默认队列：$qdisc"
     if [[ -f $SF_BBR_OWNER ]] && jq -e '.tuning.bbr!=null' "$SF_BBR_OWNER" >/dev/null; then
         sf_msg 'BBR：存在本项目管理记录（off 可恢复原值）。'
+        if [[ $cc != bbr || $qdisc != fq ]]; then
+            sf_msg '警告：运行值与受管理 BBR + fq 目标不一致，请检查其他 sysctl 配置或外部修改。'
+        fi
+        sf_msg '重启持久化尚未验证；其他 sysctl 文件可能覆盖本项目配置，status 不会执行 sysctl --system。'
     else sf_msg 'BBR：未由本项目接管；默认不开启。'; fi
 }
 sf_bbr_restore() {
@@ -79,6 +86,9 @@ sf_tune_bbr() (
     fi
     [[ " $available " == *' bbr '* ]] || { sf_fail '内核没有可用的 BBR。'; return 1; }
     cc=$(sysctl -n net.ipv4.tcp_congestion_control) && qdisc=$(sysctl -n net.core.default_qdisc) || return
+    if [[ $cc == bbr ]]; then
+        sf_msg '提示：接管前已启用 BBR；off 将恢复接管时的原值（仍为 BBR），不会删除其他工具的配置。'
+    fi
     printf '# Managed by SF-Xray-Hop; restore with sfxh tune bbr off\nnet.ipv4.tcp_congestion_control = bbr\nnet.core.default_qdisc = fq\n' > "$work/sysctl"
     printf '# Managed by SF-Xray-Hop\ntcp_bbr\n' > "$work/module"
     jq --arg cc "$cc" --arg qdisc "$qdisc" --arg sysctl "$(sf_hash "$work/sysctl")" --arg module_hash "$(sf_hash "$work/module")" \

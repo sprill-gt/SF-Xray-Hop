@@ -74,8 +74,22 @@ sf_project_release XTLS/Xray-core invalid '' "$TEST_RELEASE_WORK/chosen.json" ||
 printf 'PASS manager policy stays separate and invalid channels stop before HTTP\n'
 ! grep -q '/releases?' "$TEST_RELEASE_WORK/requests"
 TEST_HTTP_FAILURE=0
-choose '[{"tag_name":"v26.10.29","prerelease":true},{"tag_name":"v26.10.28","prerelease":true}]' v26.10.28 true
+choose '[{"tag_name":"v26.10.29","prerelease":true},{"tag_name":"v26.10.28","prerelease":true}]' v26.10.28 true > "$TEST_RELEASE_WORK/selection.log" 2>&1
+grep -q '跳过已撤回' "$TEST_RELEASE_WORK/selection.log"
+! grep -q '请运行 sfxh core update' "$TEST_RELEASE_WORK/selection.log"
 printf 'PASS withdrawn latest is skipped for next eligible candidate\n'
+# Policy read failure is not a withdrawn candidate: abort before release lookup.
+saved_code=$SFXH_CODE
+mkdir -p "$TEST_RELEASE_WORK/bad-policy/data"
+printf '{broken' > "$TEST_RELEASE_WORK/bad-policy/data/core-denylist.json"
+SFXH_CODE=$TEST_RELEASE_WORK/bad-policy
+printf '[{"name":"v26.10.28"}]' > "$TEST_RELEASE_WORK/page.json"
+: > "$TEST_RELEASE_WORK/requests"
+if sf_release_metadata auto '' "$TEST_RELEASE_WORK/chosen.json" > "$TEST_RELEASE_WORK/bad-policy.log" 2>&1; then exit 1; fi
+! grep -q '/releases/tags/' "$TEST_RELEASE_WORK/requests"
+grep -q '撤回版本策略无法读取' "$TEST_RELEASE_WORK/bad-policy.log"
+SFXH_CODE=$saved_code
+printf 'PASS malformed withdrawal policy aborts selection before Release lookup\n'
 printf '[{"name":"v26.10.29"}]' > "$TEST_RELEASE_WORK/page.json"
 if sf_release_metadata auto '' "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi
 if sf_release_metadata stable '' "$TEST_RELEASE_WORK/chosen.json"; then exit 1; fi

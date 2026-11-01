@@ -38,6 +38,12 @@ sf_tune_bbr on
 [[ $(cat "$SFXH_TEST_ROOT/sysctl/cc") == bbr && $(cat "$SFXH_TEST_ROOT/sysctl/qdisc") == fq ]]
 [[ -f $SF_BBR_SYSCTL && -f $SF_BBR_MODULE ]]
 jq -e '.tuning.bbr.originalCC=="cubic" and .unrelated=="keep"' "$SF_BBR_OWNER" >/dev/null
+printf 'cubic\n' > "$SFXH_TEST_ROOT/sysctl/cc"
+sf_bbr_status > "$SFXH_TEST_ROOT/status" 2>&1
+grep -q '运行值与受管理' "$SFXH_TEST_ROOT/status"
+[[ $(cat "$SFXH_TEST_ROOT/sysctl/cc") == cubic ]]
+printf 'bbr\n' > "$SFXH_TEST_ROOT/sysctl/cc"
+printf 'PASS status reports runtime drift without changing sysctl\n'
 reject sf_tune_bbr on
 printf 'external change\n' >> "$SF_BBR_SYSCTL"
 reject sf_tune_bbr off

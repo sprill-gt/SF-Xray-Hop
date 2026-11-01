@@ -6,10 +6,10 @@
 
 ## 安装
 
-**v1.1.0 正式版**。完整源码也可直接执行 `sudo bash install.sh`。
+**v1.1.1 正式版**。完整源码也可直接执行 `sudo bash install.sh`。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v1.1.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v1.1.1/install.sh)
 ```
 
 固定版本 HTTPS 引导；完整包校验发行清单和 SHA256。非交互安装不输出凭据。可选 `--core-track stable`、`--bbr on`；默认不修改系统拥塞控制。旧安装迁移到本版需使用相同入口追加 `--upgrade-manager`，参见[运维](docs/operations.md)。
@@ -27,6 +27,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sprill-gt/SF-Xray-Hop/v1.1.0
 | 7 / 8 | 检测与日志 / 更新管理脚本 |
 | 9 | 卸载，输入 UNINSTALL 确认 |
 
-[命令与菜单](docs/cli.md) · [双机操作](docs/two-node-guide.md) · [文档导航](docs/README.md) · [1.1.0 发行说明](docs/releases/1.1.0.md)
+[命令与菜单](docs/cli.md) · [双机操作](docs/two-node-guide.md) · [文档导航](docs/README.md) · [1.1.1 发行说明](docs/releases/1.1.1.md)
 
 [变更记录](CHANGELOG.md) · [安全报告](SECURITY.md) · [GPL-3.0-only 许可证](LICENSE)。验证范围见[实机记录](docs/live-verification-0.2.10.md)和发行说明；历史记录保存在 [docs/archive](docs/archive)。

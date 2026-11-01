@@ -37,7 +37,12 @@ jobs:
         run: |
           printf 'Source release %s\n\nBootstrap SHA256:\n```\n' "$RELEASE_TAG" > /tmp/release-notes.md
           cat artifacts/install.sh.sha256 >> /tmp/release-notes.md
-          printf '```\nSee CHANGELOG.md and docs/releases/1.1.0.md for release details and verification boundaries.\n' >> /tmp/release-notes.md
+          printf '```\nSee CHANGELOG.md for release details and verification boundaries.\n' >> /tmp/release-notes.md
+          notes="docs/releases/${RELEASE_TAG#v}.md"
+          if [[ -f $notes ]]; then
+            printf '\n' >> /tmp/release-notes.md
+            cat "$notes" >> /tmp/release-notes.md
+          fi
           channel=$(jq -er '.channel|select(.=="stable" or .=="pre")' data/manager-release.json)
           flags=()
           if [[ $channel == pre ]]; then flags+=(--prerelease --latest=false); fi
