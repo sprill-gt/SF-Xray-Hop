@@ -19,6 +19,6 @@
 | 11 脱敏 | 属于隐私与排障信息的取舍；保留现有脱敏策略。 |
 | 12 发行说明 | 已修复：按 tag 查找对应 docs/releases/<版本>.md 并附入说明，文件不存在时保留 CHANGELOG 指引，不再固定引用 1.1.0。 |
 
-本轮审查修复整理为 1.1.1 正式版候选；不部署、不删除生产配置，已发行的 v1.1.0 资产保持。版本发行状态以 GitHub Release 为准。
+本轮审查修复整理为 1.1.2 正式版候选；不部署、不删除生产配置，已发行的 v1.1.0 资产保持。版本发行状态以 GitHub Release 为准。
 
 验证：本地 Git Bash 下 tests/releases-auto.sh、tests/bbr.sh 通过（网络、服务和 sysctl 使用隔离夹具）；改动的 Shell 文件通过 ShellCheck。tests/check.py、tests/privacy.py 和 git diff --check 通过。这些结果不等于 Linux 实机、重启持久化或公开发行验收。
